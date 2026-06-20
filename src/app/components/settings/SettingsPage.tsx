@@ -39,18 +39,31 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
 
   // Load active tab from URL query params on mount/update
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab') as SettingsTab;
-      const validTabs: SettingsTab[] = ['workspace', 'profile', 'esp', 'notifications', 'billing', 'api'];
-      if (tabParam && validTabs.includes(tabParam)) {
-        if (tabParam === 'billing' && currentUser?.role !== 'owner') {
-          setActiveTab('workspace');
-        } else {
-          setActiveTab(tabParam);
+    const handleUrlChange = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab') as SettingsTab;
+        const validTabs: SettingsTab[] = ['workspace', 'profile', 'esp', 'notifications', 'billing', 'api'];
+        if (tabParam && validTabs.includes(tabParam)) {
+          if (tabParam === 'billing' && currentUser?.role !== 'owner') {
+            setActiveTab('workspace');
+          } else {
+            setActiveTab(tabParam);
+          }
         }
       }
+    };
+
+    handleUrlChange();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', handleUrlChange);
     }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('popstate', handleUrlChange);
+      }
+    };
   }, [currentUser]);
 
   // Workspace Settings State
