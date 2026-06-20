@@ -141,10 +141,42 @@ interface WorkspaceProviderProps {
   children: ReactNode;
 }
 
+import { useEffect } from 'react';
+
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(defaultWorkspaces);
   const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace>(defaultWorkspaces[0]);
-  const [currentUser, setCurrentUser] = useState<UserPersona>(availablePersonas[0]); // default to John Doe (Owner)
+  const [currentUser, setCurrentUserInternal] = useState<UserPersona>(availablePersonas[0]); // default to John Doe (Owner)
+  const [customPersonas, setCustomPersonas] = useState<UserPersona[]>([]);
+
+  // Hydrate from localStorage on client-side mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('nconnect_current_user');
+    if (savedUser) {
+      try {
+        setCurrentUserInternal(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Failed to parse nconnect_current_user', e);
+      }
+    }
+    const savedCustomPersonas = localStorage.getItem('nconnect_custom_personas');
+    if (savedCustomPersonas) {
+      try {
+        setCustomPersonas(JSON.parse(savedCustomPersonas));
+      } catch (e) {
+        console.error('Failed to parse nconnect_custom_personas', e);
+      }
+    }
+  }, []);
+
+  const setCurrentUser = (user: UserPersona) => {
+    setCurrentUserInternal(user);
+    if (user) {
+      localStorage.setItem('nconnect_current_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('nconnect_current_user');
+    }
+  };
 
   const addWorkspace = (workspace: Workspace) => {
     setWorkspaces([...workspaces, workspace]);
@@ -152,7 +184,22 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   };
 
   const switchPersona = (email: string) => {
-    const found = availablePersonas.find(p => p.email.toLowerCase() === email.toLowerCase());
+    // Reload custom personas in case they were updated
+    const savedCustomPersonas = typeof window !== 'undefined'
+      ? localStorage.getItem('nconnect_custom_personas')
+      : null;
+    let latestCustom: UserPersona[] = customPersonas;
+    if (savedCustomPersonas) {
+      try {
+        latestCustom = JSON.parse(savedCustomPersonas);
+        setCustomPersonas(latestCustom);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const allPersonas = [...availablePersonas, ...latestCustom];
+    const found = allPersonas.find(p => p.email.toLowerCase() === email.toLowerCase());
     if (found) {
       setCurrentUser(found);
       
@@ -172,6 +219,8 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     }
   };
 
+  const dynamicPersonas = [...availablePersonas, ...customPersonas];
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -181,7 +230,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
         addWorkspace,
         currentUser,
         setCurrentUser,
-        personas: availablePersonas,
+        personas: dynamicPersonas,
         switchPersona,
       }}
     >

@@ -155,8 +155,8 @@ export function DashboardHeader({
     localStorage.clear();
     sessionStorage.clear();
     // Redirect to login or show confirmation
-    alert('Signing out... You will be redirected to the login page.');
-    window.location.href = '/login';
+    alert('Signing out... You will be redirected to the sign-in page.');
+    window.location.href = '/signin';
   };
 
   const handleSaveProfile = () => {

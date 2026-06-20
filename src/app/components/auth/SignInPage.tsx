@@ -50,13 +50,19 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
     // Simulate API call to check if user exists and session status
     await new Promise(resolve => setTimeout(resolve, 1000));
     
+    const customPersonas = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+      : [];
+    const customEmails = customPersonas.map((p: any) => p.email.toLowerCase());
+
     const validEmails = [
       'john@example.com',
       'jane@example.com',
       'mark@example.com',
       'test@example.com',
       'admin@nconnect.com',
-      'user@example.com'
+      'user@example.com',
+      ...customEmails
     ];
     
     if (!validEmails.includes(email.toLowerCase())) {

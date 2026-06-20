@@ -6,9 +6,9 @@ import { SignUpPage } from '@/app/components/auth/SignUpPage';
 export default function SignUpRoute() {
   const router = useRouter();
 
-  const handleSignUpSuccess = (email: string) => {
+  const handleSignUpSuccess = (email: string, name: string) => {
     // Store or pass email to verification page
-    router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+    router.push(`/verify-email?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`);
   };
 
   return (

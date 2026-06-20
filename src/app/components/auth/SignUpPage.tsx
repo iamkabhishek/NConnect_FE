@@ -6,16 +6,22 @@ import { Label } from '@/app/components/ui/label';
 
 interface SignUpPageProps {
   onSignIn: () => void;
-  onSignUpSuccess: (email: string) => void;
+  onSignUpSuccess: (email: string, name: string) => void;
   onBack: () => void;
 }
 
 export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
   const validate = (): boolean => {
+    if (!name.trim()) {
+      setError('Full Name is required');
+      return false;
+    }
+
     if (!email) {
       setError('Email is required');
       return false;
@@ -57,9 +63,10 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
       return;
     }
     
-    // Mock success - redirect to OTP verification
+    // Mock success - store to localStorage for the verification/profile step
+    localStorage.setItem('nconnect_signed_up_user', JSON.stringify({ email, name }));
     setIsLoading(false);
-    onSignUpSuccess(email);
+    onSignUpSuccess(email, name);
   };
 
   return (
@@ -87,11 +94,30 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
             Create your account
           </h1>
           <p className="text-center text-gray-600 mb-8">
-            Enter your email to get started
+            Enter your details to get started
           </p>
 
           {/* Form */}
           <form onSubmit={onSubmit} className="space-y-6">
+            {/* Full Name Field */}
+            <div>
+              <Label htmlFor="name" className="text-sm font-semibold text-gray-900">
+                Full Name
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                autoFocus
+                className="mt-2 h-12"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError('');
+                }}
+              />
+            </div>
+
             {/* Email Field */}
             <div>
               <Label htmlFor="email" className="text-sm font-semibold text-gray-900">
@@ -101,7 +127,6 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                autoFocus
                 className="mt-2 h-12"
                 value={email}
                 onChange={(e) => {

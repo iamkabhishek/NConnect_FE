@@ -3,19 +3,74 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { VerifyEmailPage } from '@/app/components/auth/VerifyEmailPage';
-import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useWorkspace, UserPersona } from '@/app/contexts/WorkspaceContext';
 
 function VerifyEmailInner() {
   const router = useRouter();
-  const { currentUser } = useWorkspace();
+  const { currentUser, setCurrentUser } = useWorkspace();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || 'user@example.com';
+  const name = searchParams.get('name') || '';
 
   const handleVerifySuccess = () => {
-    // Onboarding bypass guard:
-    // Only organization owners who have NOT yet completed onboarding go to /onboarding.
-    // Since John Doe (owner) has completed onboarding, and Jane Smith (admin) & Mark Miller (member)
-    // are invited workspace members, they do not need to onboard and go straight to the dashboard.
+    // Check if we have a custom user name passed via signup redirect or stored in localStorage
+    const savedSignupStr = localStorage.getItem('nconnect_signed_up_user');
+    let finalName = name;
+    let finalEmail = email;
+    if (savedSignupStr) {
+      try {
+        const saved = JSON.parse(savedSignupStr);
+        finalName = saved.name || finalName;
+        finalEmail = saved.email || finalEmail;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (finalName) {
+      // Build a custom user persona
+      const customUser: UserPersona = {
+        id: `USR-${Date.now()}`,
+        name: finalName,
+        email: finalEmail,
+        role: 'owner', // Default role for new signups
+        onboarded: false, // New signup starts with onboarded false
+        avatar: finalName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2),
+        permissions: {
+          contacts: 'admin',
+          campaigns: 'admin',
+          templates: 'admin',
+          automation: 'admin',
+          settings: 'admin',
+          users: 'admin',
+          workspaces: 'admin',
+          senderEmails: 'admin',
+          reports: 'admin',
+          media: 'admin',
+        }
+      };
+
+      // Store in context (which will write to localStorage)
+      setCurrentUser(customUser);
+
+      // Save customUser to the custom personas list so the switcher works
+      const customPersonas = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+        : [];
+      // Avoid duplicate emails
+      const filtered = customPersonas.filter((p: any) => p.email.toLowerCase() !== finalEmail.toLowerCase());
+      filtered.push(customUser);
+      localStorage.setItem('nconnect_custom_personas', JSON.stringify(filtered));
+      
+      // Clean up signup scratch state
+      localStorage.removeItem('nconnect_signed_up_user');
+
+      // Since they are an owner and not onboarded yet, push to /onboarding
+      router.push('/onboarding');
+      return;
+    }
+
+    // Default flow fallback
     if (currentUser.role === 'owner' && !currentUser.onboarded) {
       router.push('/onboarding');
     } else {
