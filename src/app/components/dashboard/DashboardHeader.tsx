@@ -126,8 +126,12 @@ export function DashboardHeader({
   };
 
   const handleSignOut = () => {
-    // Clear any session data
-    localStorage.clear();
+    // Clear only session/active-user data, preserving custom personas (our mock database) and other app configurations
+    localStorage.removeItem('nconnect_current_user');
+    localStorage.removeItem('nconnect_onboarding_step');
+    localStorage.removeItem('nconnect_onboarding_data');
+    localStorage.removeItem('nconnect_signed_up_user');
+    
     sessionStorage.clear();
     // Redirect to login or show confirmation
     alert('Signing out... You will be redirected to the sign-in page.');

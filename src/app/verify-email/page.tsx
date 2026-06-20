@@ -7,7 +7,7 @@ import { useWorkspace, UserPersona } from '@/app/contexts/WorkspaceContext';
 
 function VerifyEmailInner() {
   const router = useRouter();
-  const { currentUser, setCurrentUser } = useWorkspace();
+  const { currentUser, setCurrentUser, personas } = useWorkspace();
   const searchParams = useSearchParams();
   const email = searchParams.get('email') || 'user@example.com';
   const name = searchParams.get('name') || '';
@@ -23,6 +23,30 @@ function VerifyEmailInner() {
       } catch (e) {
         console.error(e);
       }
+    }
+
+    // First, check if this persona/user already exists in personas or custom personas
+    const customPersonas = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+      : [];
+    
+    // Find in both context's personas and customPersonas list
+    const existingPersona = personas.find((p: UserPersona) => p.email.toLowerCase() === finalEmail.toLowerCase()) ||
+                            customPersonas.find((p: any) => p.email.toLowerCase() === finalEmail.toLowerCase());
+
+    if (existingPersona) {
+      // Store in context (which will write to localStorage)
+      setCurrentUser(existingPersona);
+      
+      // Clean up signup scratch state
+      localStorage.removeItem('nconnect_signed_up_user');
+
+      if (existingPersona.onboarded) {
+        router.push('/dashboard');
+      } else {
+        router.push('/onboarding');
+      }
+      return;
     }
 
     // Since we now enter full name during onboarding, derive default name from email address prefix
@@ -55,9 +79,6 @@ function VerifyEmailInner() {
     setCurrentUser(customUser);
 
     // Save customUser to the custom personas list so the switcher works
-    const customPersonas = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
-      : [];
     // Avoid duplicate emails
     const filtered = customPersonas.filter((p: any) => p.email.toLowerCase() !== finalEmail.toLowerCase());
     filtered.push(customUser);
@@ -68,14 +89,6 @@ function VerifyEmailInner() {
 
     // Since they are an owner and not onboarded yet, push to /onboarding
     router.push('/onboarding');
-    return;
-
-    // Default flow fallback
-    if (currentUser.role === 'owner' && !currentUser.onboarded) {
-      router.push('/onboarding');
-    } else {
-      router.push('/dashboard');
-    }
   };
 
   return (
