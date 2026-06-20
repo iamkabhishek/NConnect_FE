@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation';
 import { ArticleDetailPage } from '@/app/components/documentation/ArticleDetailPage';
+import { resolveRoute } from '@/app/components/ui/utils';
 
 export default function ArticleDetailPageRoute() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function ArticleDetailPageRoute() {
 
   return (
     <ArticleDetailPage
-      onNavigate={(page) => router.push(`/dashboard/${page}`)}
+      onNavigate={(page) => router.push(resolveRoute(page))}
       onBackToDocumentation={() => router.push('/docs')}
     />
   );
