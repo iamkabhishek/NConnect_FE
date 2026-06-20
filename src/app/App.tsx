@@ -58,7 +58,7 @@ type AuthModule =
   | 'documentation-article';
 
 function AppContent() {
-  const { currentUser } = useWorkspace();
+  const { currentUser, switchPersona } = useWorkspace();
   const [currentModule, setCurrentModule] = useState<AuthModule>('landing');
   const [userEmail, setUserEmail] = useState('');
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
@@ -79,6 +79,7 @@ function AppContent() {
 
   const handleSignUpSuccess = (email: string) => {
     setUserEmail(email);
+    switchPersona(email);
     setCurrentModule('verify-email');
   };
 

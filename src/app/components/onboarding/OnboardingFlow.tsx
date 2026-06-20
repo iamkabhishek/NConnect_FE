@@ -106,10 +106,65 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const handleStep6Complete = (data: UseCaseData) => {
     const updated = { ...onboardingData, useCase: data };
-    saveStepProgress(7, updated); // Under Review screen is step 7
+    
+    // Auto-register to nconnect_custom_queue in the background so it still appears in /ops console
+    if (typeof window !== 'undefined') {
+      const workspaceSlug = updated.workspace?.identifier || updated.workspace?.slug || 'workspace-slug';
+      const workspaceName = updated.workspace?.name || updated.agency?.name || 'My Workspace';
+      const ownerName = updated.personal ? `${updated.personal.firstName} ${updated.personal.lastName}` : 'Owner';
+      const slaTier = updated.plan?.tier || updated.workspace?.slaTier || 'Business';
+
+      const rawQueue = localStorage.getItem('nconnect_custom_queue');
+      let customQueue = [];
+      try {
+        if (rawQueue) customQueue = JSON.parse(rawQueue);
+      } catch (e) {
+        console.error(e);
+      }
+
+      const exists = customQueue.some((item: any) => item.domainSlug === workspaceSlug);
+      if (!exists) {
+        const newRequest = {
+          id: 'cust-' + Math.random().toString(36).substring(2, 7),
+          workspaceName,
+          ownerName,
+          domainSlug: workspaceSlug,
+          slaTier,
+          status: 'In Review',
+          submittedAt: new Date().toISOString(),
+          onboardingData: updated,
+        };
+        customQueue.push(newRequest);
+        localStorage.setItem('nconnect_custom_queue', JSON.stringify(customQueue));
+      }
+
+      // Pre-populate approval state as APPROVED for instant user bypass
+      localStorage.setItem(`nconnect_approval_${workspaceSlug}`, 'APPROVED');
+    }
+
+    saveStepProgress(8, updated); // Under Review (Step 7) bypassed, go straight to Step 8 (Success)
   };
 
   const handleFinalizeOnboarding = () => {
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        onboarded: true
+      };
+      setCurrentUser(updatedUser);
+
+      // Also update in custom personas list
+      const customPersonas = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+        : [];
+      const updatedPersonas = customPersonas.map((p: any) => 
+        p.email.toLowerCase() === currentUser.email.toLowerCase()
+          ? { ...p, onboarded: true }
+          : p
+      );
+      localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedPersonas));
+    }
+
     // Clear cache upon complete
     localStorage.removeItem('nconnect_onboarding_step');
     localStorage.removeItem('nconnect_onboarding_data');

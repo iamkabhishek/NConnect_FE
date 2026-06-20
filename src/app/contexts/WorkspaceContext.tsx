@@ -199,7 +199,36 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     }
 
     const allPersonas = [...availablePersonas, ...latestCustom];
-    const found = allPersonas.find(p => p.email.toLowerCase() === email.toLowerCase());
+    let found = allPersonas.find(p => p.email.toLowerCase() === email.toLowerCase());
+    if (!found && email) {
+      const newPersona: UserPersona = {
+        id: 'USR-' + Math.random().toString(36).substring(2, 9),
+        name: email.split('@')[0],
+        email: email,
+        role: 'owner',
+        onboarded: false,
+        avatar: email.substring(0, 2).toUpperCase(),
+        permissions: {
+          contacts: 'admin',
+          campaigns: 'admin',
+          templates: 'admin',
+          automation: 'admin',
+          settings: 'admin',
+          users: 'admin',
+          workspaces: 'admin',
+          senderEmails: 'admin',
+          reports: 'admin',
+          media: 'admin',
+        }
+      };
+      const updatedCustom = [...latestCustom, newPersona];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedCustom));
+      }
+      setCustomPersonas(updatedCustom);
+      found = newPersona;
+    }
+
     if (found) {
       setCurrentUser(found);
       

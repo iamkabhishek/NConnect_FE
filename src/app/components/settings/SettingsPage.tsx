@@ -6,6 +6,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { toast } from 'sonner';
 import {
   Settings,
   User,
@@ -33,7 +34,7 @@ interface SettingsPageProps {
 type SettingsTab = 'workspace' | 'profile' | 'esp' | 'notifications' | 'billing' | 'api';
 
 export function SettingsPage({ onNavigate }: SettingsPageProps) {
-  const { currentUser, selectedWorkspace } = useWorkspace();
+  const { currentUser, selectedWorkspace, setCurrentUser, setSelectedWorkspace } = useWorkspace();
   const userName = currentUser?.name || 'John Doe';
   const [activeTab, setActiveTab] = useState<SettingsTab>('workspace');
 
@@ -181,12 +182,25 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
 
   const handleSaveWorkspace = () => {
     console.log('Saving workspace settings:', workspaceSettings);
-    // Show success message
+    if (selectedWorkspace) {
+      const updatedWorkspace = { ...selectedWorkspace, name: workspaceSettings.name };
+      setSelectedWorkspace(updatedWorkspace);
+      toast.success('Workspace settings updated successfully!');
+    }
   };
 
   const handleSaveProfile = () => {
     console.log('Saving profile settings:', profileSettings);
-    // Show success message
+    if (currentUser) {
+      const initials = profileSettings.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+      setCurrentUser({
+        ...currentUser,
+        name: profileSettings.fullName,
+        email: profileSettings.email,
+        avatar: initials || currentUser.avatar,
+      });
+      toast.success('Profile settings updated successfully!');
+    }
   };
 
   const handleSaveESP = () => {
