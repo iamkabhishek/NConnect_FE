@@ -15,60 +15,60 @@ function VerifyEmailInner() {
   const handleVerifySuccess = () => {
     // Check if we have a custom user name passed via signup redirect or stored in localStorage
     const savedSignupStr = localStorage.getItem('nconnect_signed_up_user');
-    let finalName = name;
     let finalEmail = email;
     if (savedSignupStr) {
       try {
         const saved = JSON.parse(savedSignupStr);
-        finalName = saved.name || finalName;
         finalEmail = saved.email || finalEmail;
       } catch (e) {
         console.error(e);
       }
     }
 
-    if (finalName) {
-      // Build a custom user persona
-      const customUser: UserPersona = {
-        id: `USR-${Date.now()}`,
-        name: finalName,
-        email: finalEmail,
-        role: 'owner', // Default role for new signups
-        onboarded: false, // New signup starts with onboarded false
-        avatar: finalName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2),
-        permissions: {
-          contacts: 'admin',
-          campaigns: 'admin',
-          templates: 'admin',
-          automation: 'admin',
-          settings: 'admin',
-          users: 'admin',
-          workspaces: 'admin',
-          senderEmails: 'admin',
-          reports: 'admin',
-          media: 'admin',
-        }
-      };
+    // Since we now enter full name during onboarding, derive default name from email address prefix
+    const emailPrefix = finalEmail.split('@')[0] || 'User';
+    const finalName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
-      // Store in context (which will write to localStorage)
-      setCurrentUser(customUser);
+    // Build a custom user persona
+    const customUser: UserPersona = {
+      id: `USR-${Date.now()}`,
+      name: finalName,
+      email: finalEmail,
+      role: 'owner', // Default role for new signups
+      onboarded: false, // New signup starts with onboarded false
+      avatar: finalName.substring(0, 2).toUpperCase(),
+      permissions: {
+        contacts: 'admin',
+        campaigns: 'admin',
+        templates: 'admin',
+        automation: 'admin',
+        settings: 'admin',
+        users: 'admin',
+        workspaces: 'admin',
+        senderEmails: 'admin',
+        reports: 'admin',
+        media: 'admin',
+      }
+    };
 
-      // Save customUser to the custom personas list so the switcher works
-      const customPersonas = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
-        : [];
-      // Avoid duplicate emails
-      const filtered = customPersonas.filter((p: any) => p.email.toLowerCase() !== finalEmail.toLowerCase());
-      filtered.push(customUser);
-      localStorage.setItem('nconnect_custom_personas', JSON.stringify(filtered));
-      
-      // Clean up signup scratch state
-      localStorage.removeItem('nconnect_signed_up_user');
+    // Store in context (which will write to localStorage)
+    setCurrentUser(customUser);
 
-      // Since they are an owner and not onboarded yet, push to /onboarding
-      router.push('/onboarding');
-      return;
-    }
+    // Save customUser to the custom personas list so the switcher works
+    const customPersonas = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+      : [];
+    // Avoid duplicate emails
+    const filtered = customPersonas.filter((p: any) => p.email.toLowerCase() !== finalEmail.toLowerCase());
+    filtered.push(customUser);
+    localStorage.setItem('nconnect_custom_personas', JSON.stringify(filtered));
+    
+    // Clean up signup scratch state
+    localStorage.removeItem('nconnect_signed_up_user');
+
+    // Since they are an owner and not onboarded yet, push to /onboarding
+    router.push('/onboarding');
+    return;
 
     // Default flow fallback
     if (currentUser.role === 'owner' && !currentUser.onboarded) {

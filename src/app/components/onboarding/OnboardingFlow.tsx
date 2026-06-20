@@ -21,7 +21,10 @@ export interface OnboardingData {
   useCase: UseCaseData | null;
 }
 
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+  const { currentUser, setCurrentUser } = useWorkspace();
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personal: null,
@@ -61,6 +64,29 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleStep2Complete = (data: PersonalInfoData) => {
     const updated = { ...onboardingData, personal: data };
     saveStepProgress(3, updated);
+
+    // Dynamically update currentUser name in WorkspaceContext!
+    if (currentUser) {
+      const finalName = `${data.firstName} ${data.lastName}`;
+      const initials = `${data.firstName[0] || ''}${data.lastName[0] || ''}`.toUpperCase().substring(0, 2);
+      const updatedUser = {
+        ...currentUser,
+        name: finalName,
+        avatar: initials || currentUser.avatar,
+      };
+      setCurrentUser(updatedUser);
+
+      // Update in custom personas list too
+      const customPersonas = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+        : [];
+      const updatedPersonas = customPersonas.map((p: any) => 
+        p.email.toLowerCase() === currentUser.email.toLowerCase()
+          ? { ...p, name: finalName, avatar: initials || p.avatar }
+          : p
+      );
+      localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedPersonas));
+    }
   };
 
   const handleStep3Complete = (data: AgencyData) => {
