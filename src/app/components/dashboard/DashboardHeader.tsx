@@ -11,6 +11,7 @@ import {
 } from '@/app/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useRouter } from 'next/navigation';
 
 interface DashboardHeaderProps {
   userName: string;
@@ -25,6 +26,7 @@ export function DashboardHeader({
   onAddMemberClick,
   onCreateWorkspaceClick,
 }: DashboardHeaderProps) {
+  const router = useRouter();
   const { selectedWorkspace, setSelectedWorkspace, workspaces, currentUser } = useWorkspace();
   
   const initials = currentUser.name
@@ -329,9 +331,21 @@ export function DashboardHeader({
                   <div className="text-sm font-bold text-zinc-950 truncate">{currentUser.name}</div>
                   <div className="text-[11px] font-medium text-zinc-400 truncate mt-0.5">{currentUser.email}</div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="my-1 border-zinc-100" />
                 <DropdownMenuItem
-                  onClick={() => setShowProfileModal(true)}
+                  onClick={() => {
+                    if (onSettingsClick) {
+                      onSettingsClick();
+                      if (typeof window !== 'undefined') {
+                        const newUrl = window.location.pathname.includes('/settings')
+                          ? '?tab=profile'
+                          : '/dashboard/settings?tab=profile';
+                        window.history.pushState(null, '', newUrl);
+                        window.dispatchEvent(new Event('popstate'));
+                      }
+                    } else {
+                      router.push('/dashboard/settings?tab=profile');
+                    }
+                  }}
                   className="rounded-xl p-2 cursor-pointer text-xs font-semibold text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-all duration-150"
                 >
                   <User className="size-4 mr-2.5 text-zinc-400" />
@@ -340,7 +354,20 @@ export function DashboardHeader({
                 
                 {currentUser.role === 'owner' && (
                   <DropdownMenuItem
-                    onClick={() => setShowBillingModal(true)}
+                    onClick={() => {
+                      if (onSettingsClick) {
+                        onSettingsClick();
+                        if (typeof window !== 'undefined') {
+                          const newUrl = window.location.pathname.includes('/settings')
+                            ? '?tab=billing'
+                            : '/dashboard/settings?tab=billing';
+                          window.history.pushState(null, '', newUrl);
+                          window.dispatchEvent(new Event('popstate'));
+                        }
+                      } else {
+                        router.push('/dashboard/settings?tab=billing');
+                      }
+                    }}
                     className="rounded-xl p-2 cursor-pointer text-xs font-semibold text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-all duration-150"
                   >
                     <CreditCard className="size-4 mr-2.5 text-zinc-400" />
@@ -349,7 +376,13 @@ export function DashboardHeader({
                 )}
 
                 <DropdownMenuItem
-                  onClick={() => setShowTeamModal(true)}
+                  onClick={() => {
+                    if (onAddMemberClick) {
+                      onAddMemberClick();
+                    } else {
+                      router.push('/dashboard/users');
+                    }
+                  }}
                   className="rounded-xl p-2 cursor-pointer text-xs font-semibold text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-all duration-150"
                 >
                   <Users className="size-4 mr-2.5 text-zinc-400" />

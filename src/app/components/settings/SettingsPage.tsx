@@ -37,6 +37,22 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const userName = currentUser?.name || 'John Doe';
   const [activeTab, setActiveTab] = useState<SettingsTab>('workspace');
 
+  // Load active tab from URL query params on mount/update
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as SettingsTab;
+      const validTabs: SettingsTab[] = ['workspace', 'profile', 'esp', 'notifications', 'billing', 'api'];
+      if (tabParam && validTabs.includes(tabParam)) {
+        if (tabParam === 'billing' && currentUser?.role !== 'owner') {
+          setActiveTab('workspace');
+        } else {
+          setActiveTab(tabParam);
+        }
+      }
+    }
+  }, [currentUser]);
+
   // Workspace Settings State
   const [workspaceSettings, setWorkspaceSettings] = useState({
     name: selectedWorkspace?.name || 'My Workspace',

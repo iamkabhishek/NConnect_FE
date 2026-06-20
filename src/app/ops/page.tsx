@@ -10,7 +10,6 @@ import ModuleProfile from './components/ModuleProfile';
 import ModuleTenants from './components/ModuleTenants';
 import ModuleBilling from './components/ModuleBilling';
 import ModuleCoupons from './components/ModuleCoupons';
-import ModuleOperators from './components/ModuleOperators';
 import ModuleCMS from './components/ModuleCMS';
 import ModuleSecurity from './components/ModuleSecurity';
 import ModuleNotifications from './components/ModuleNotifications';
@@ -151,8 +150,6 @@ export default function OpsCockpitPage() {
         return <ModuleBilling />;
       case 3:
         return <ModuleCoupons />;
-      case 4:
-        return <ModuleOperators activeOperator={activeOperator} />;
       case 5:
         return <ModuleCMS />;
       case 6:

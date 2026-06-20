@@ -48,12 +48,6 @@ export default function OpsSidebar({ activeTab, setActiveTab, activeOperator }: 
         { id: 8, label: "Help Desk Tickets", icon: HelpCircle },
       ]
     },
-    {
-      title: "System & Access",
-      items: [
-        { id: 4, label: "Platform Operators", icon: ShieldCheck },
-      ]
-    }
   ];
 
   return (
