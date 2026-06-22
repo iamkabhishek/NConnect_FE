@@ -2,14 +2,18 @@ import { useState, useEffect, useRef } from 'react';
 import { Mail, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/app/components/ui/input-otp';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { verifyOtp, getMe } from '@/app/lib/api';
 
 interface VerifyEmailPageProps {
   email: string;
-  onVerifySuccess: () => void;
+  session: string;
+  onVerifySuccess: (needsOnboarding: boolean) => void;
   onBack: () => void;
 }
 
-export function VerifyEmailPage({ email, onVerifySuccess, onBack }: VerifyEmailPageProps) {
+export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: VerifyEmailPageProps) {
+  const { setCurrentUser } = useWorkspace();
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -64,33 +68,51 @@ export function VerifyEmailPage({ email, onVerifySuccess, onBack }: VerifyEmailP
     setIsLoading(true);
     setError('');
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // 1. Verify OTP using custom challenge endpoint
+      const authResult = await verifyOtp(email, code, session);
+      
+      // 2. Store tokens in localStorage
+      localStorage.setItem('nconnect_id_token', authResult.token);
+      localStorage.setItem('nconnect_access_token', authResult.accessToken);
+      localStorage.setItem('nconnect_refresh_token', authResult.refreshToken);
 
-    // Check if OTP has expired
-    if (timeLeft <= 0) {
+      // 3. Fetch user profile and workspace info from /auth/me
+      const me = await getMe(authResult.token);
+
+      // 4. Update global context persona state
+      setCurrentUser({
+        id: me.userId,
+        name: email.split('@')[0], // fallback display name
+        email: email,
+        role: (me.role as any) || 'owner',
+        onboarded: !me.needsOnboarding,
+        avatar: email.substring(0, 2).toUpperCase(),
+        // Store sequential custom identifiers returned by backend Hono middleware
+        customUserId: me.customUserId,
+        customTenantId: me.customTenantId,
+        permissions: {
+          contacts: 'admin',
+          campaigns: 'admin',
+          templates: 'admin',
+          automation: 'admin',
+          settings: 'admin',
+          users: 'admin',
+          workspaces: 'admin',
+          senderEmails: 'admin',
+          reports: 'admin',
+          media: 'admin',
+        }
+      });
+
       setIsLoading(false);
-      setError('This OTP has expired. Please request a new one.');
-      setOtp('');
-      return;
-    }
-
-    // Mock validation - accept "123456" or any 6 digits for demo
-    // In real app, this would validate against the OTP sent to the user
-    const correctOtp = '123456'; // Mock correct OTP
-    
-    if (code !== correctOtp) {
+      onVerifySuccess(me.needsOnboarding);
+    } catch (err: any) {
+      console.error('[VerifyOTP] verification failed:', err);
+      setError(err.message || 'Incorrect OTP code or expired session. Please try again.');
       setIsLoading(false);
-      setError('Incorrect OTP. Please check and try again.');
       setOtp('');
-      return;
     }
-
-    // Success
-    setIsLoading(false);
-    // Show success message briefly
-    await new Promise(resolve => setTimeout(resolve, 500));
-    onVerifySuccess();
   };
 
   const handleResend = async () => {

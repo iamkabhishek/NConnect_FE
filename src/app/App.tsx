@@ -61,6 +61,7 @@ function AppContent() {
   const { currentUser, switchPersona } = useWorkspace();
   const [currentModule, setCurrentModule] = useState<AuthModule>('landing');
   const [userEmail, setUserEmail] = useState('');
+  const [cognitoSession, setCognitoSession] = useState('');
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('');
   const [campaignCreationType, setCampaignCreationType] = useState<'scratch' | 'template' | 'quick'>('scratch');
@@ -77,14 +78,16 @@ function AppContent() {
     setCurrentModule('signin');
   };
 
-  const handleSignUpSuccess = (email: string) => {
+  const handleSignUpSuccess = (email: string, session: string) => {
     setUserEmail(email);
+    setCognitoSession(session);
     switchPersona(email);
     setCurrentModule('verify-email');
   };
 
-  const handleSignInSuccess = (email: string) => {
+  const handleSignInSuccess = (email: string, session: string) => {
     setUserEmail(email);
+    setCognitoSession(session);
     setCurrentModule('verify-email');
   };
 
@@ -171,6 +174,7 @@ function AppContent() {
       {currentModule === 'verify-email' && (
         <VerifyEmailPage 
           email={userEmail}
+          session={cognitoSession}
           onVerifySuccess={handleVerifySuccess}
           onBack={handleBackToSignIn}
         />

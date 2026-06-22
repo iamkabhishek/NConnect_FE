@@ -22,10 +22,13 @@ export interface OnboardingData {
 }
 
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { completeOnboarding, refreshCognitoTokens, updateProfile } from '@/app/lib/api';
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { currentUser, setCurrentUser } = useWorkspace();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [finalizationError, setFinalizationError] = useState<string | null>(null);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personal: null,
     agency: null,
@@ -145,31 +148,98 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     saveStepProgress(8, updated); // Under Review (Step 7) bypassed, go straight to Step 8 (Success)
   };
 
-  const handleFinalizeOnboarding = () => {
-    if (currentUser) {
-      const updatedUser = {
-        ...currentUser,
-        onboarded: true
-      };
-      setCurrentUser(updatedUser);
+  const handleFinalizeOnboarding = async () => {
+    setIsFinalizing(true);
+    setFinalizationError(null);
 
-      // Also update in custom personas list
-      const customPersonas = typeof window !== 'undefined'
-        ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
-        : [];
-      const updatedPersonas = customPersonas.map((p: any) => 
-        p.email.toLowerCase() === currentUser.email.toLowerCase()
-          ? { ...p, onboarded: true }
-          : p
+    try {
+      const idToken = localStorage.getItem('nconnect_id_token');
+      const refreshToken = localStorage.getItem('nconnect_refresh_token');
+
+      if (!idToken) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
+
+      // 1. Submit workspace details to the API
+      const workspaceName = onboardingData.workspace?.name || onboardingData.agency?.name || 'My Workspace';
+      const completeResult = await completeOnboarding(
+        idToken,
+        workspaceName,
+        onboardingData.useCase?.purpose || onboardingData.useCase?.details || 'Workspace Onboarding'
       );
-      localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedPersonas));
-    }
 
-    // Clear cache upon complete
-    localStorage.removeItem('nconnect_onboarding_step');
-    localStorage.removeItem('nconnect_onboarding_data');
-    localStorage.removeItem(`nconnect_approval_${onboardingData.workspace?.identifier || onboardingData.workspace?.slug}`);
-    onComplete();
+      // 2. Trigger Cognito Refresh to stamp custom:tenantId claim
+      let activeIdToken = idToken;
+      if (refreshToken) {
+        try {
+          const refreshResult = await refreshCognitoTokens(refreshToken);
+          activeIdToken = refreshResult.token;
+          
+          // Store refreshed tokens in localStorage
+          localStorage.setItem('nconnect_id_token', refreshResult.token);
+          localStorage.setItem('nconnect_access_token', refreshResult.accessToken);
+          localStorage.setItem('nconnect_refresh_token', refreshResult.refreshToken);
+        } catch (refreshErr) {
+          console.error('Failed to automatically refresh Cognito token claims:', refreshErr);
+          // Non-blocking fallback: proceed with original ID token if refresh fails
+        }
+      }
+
+      // 3. Update user display name in database if personal details are present
+      if (onboardingData.personal) {
+        const fullName = `${onboardingData.personal.firstName} ${onboardingData.personal.lastName}`.trim();
+        try {
+          await updateProfile(activeIdToken, fullName);
+        } catch (profileErr) {
+          console.error('Failed to sync display name to database:', profileErr);
+          // Non-blocking fallback
+        }
+      }
+
+      // 4. Update current user state in workspace context
+      if (currentUser) {
+        const finalName = onboardingData.personal
+          ? `${onboardingData.personal.firstName} ${onboardingData.personal.lastName}`.trim()
+          : currentUser.name;
+        const initials = onboardingData.personal
+          ? `${onboardingData.personal.firstName[0] || ''}${onboardingData.personal.lastName[0] || ''}`.toUpperCase().substring(0, 2)
+          : currentUser.avatar;
+
+        const updatedUser = {
+          ...currentUser,
+          name: finalName,
+          avatar: initials || currentUser.avatar,
+          onboarded: true,
+          // Sync sequential human-readable tenant code back to context state
+          customTenantId: completeResult.customTenantId,
+          tenantId: completeResult.tenantId,
+        };
+        setCurrentUser(updatedUser);
+
+        // Also update in custom personas list
+        const customPersonas = typeof window !== 'undefined'
+          ? JSON.parse(localStorage.getItem('nconnect_custom_personas') || '[]')
+          : [];
+        const updatedPersonas = customPersonas.map((p: any) => 
+          p.email.toLowerCase() === currentUser.email.toLowerCase()
+            ? { ...p, name: finalName, avatar: initials || p.avatar, onboarded: true }
+            : p
+        );
+        localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedPersonas));
+      }
+
+      // 5. Clear onboarding progress caches
+      localStorage.removeItem('nconnect_onboarding_step');
+      localStorage.removeItem('nconnect_onboarding_data');
+      localStorage.removeItem(`nconnect_approval_${onboardingData.workspace?.identifier || onboardingData.workspace?.slug}`);
+      
+      // 6. Redirect straight to /dashboard
+      onComplete();
+    } catch (err: any) {
+      console.error('Error finalizing onboarding:', err);
+      setFinalizationError(err.message || 'An unexpected error occurred during finalization.');
+      setIsFinalizing(false);
+    }
   };
 
   return (
@@ -256,6 +326,63 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           />
         )}
       </div>
+
+      {/* Premium Finalizing Backdrop Overlay */}
+      {isFinalizing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white/10 border border-white/20 p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl text-center relative overflow-hidden backdrop-saturate-150">
+            {/* Glowing background gradient balls */}
+            <div className="absolute -top-12 -left-12 size-36 bg-fuchsia-500/30 rounded-full blur-2xl animate-pulse"></div>
+            <div className="absolute -bottom-12 -right-12 size-36 bg-indigo-500/30 rounded-full blur-2xl animate-pulse delay-75"></div>
+            
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="relative mb-6">
+                <div className="size-16 rounded-full border-t-4 border-r-4 border-fuchsia-500 animate-spin"></div>
+                <div className="size-10 rounded-full border-b-4 border-l-4 border-indigo-500 animate-spin absolute top-3 left-3" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Finalizing Workspace</h3>
+              <p className="text-gray-300 text-sm animate-pulse">
+                Setting up and launching your customized environment. Please do not close this window...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Error Card Overlay */}
+      {finalizationError && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white border border-red-100 p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl text-center relative overflow-hidden">
+            <div className="absolute -top-12 -left-12 size-36 bg-red-500/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="bg-red-50 rounded-full p-4 mb-4 animate-bounce">
+                <svg className="size-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Finalization Failed</h3>
+              <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+                {finalizationError}
+              </p>
+              <div className="flex gap-4 w-full">
+                <button
+                  onClick={() => setFinalizationError(null)}
+                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFinalizeOnboarding}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white rounded-lg hover:from-fuchsia-700 hover:to-indigo-700 transition-all font-medium shadow-md shadow-fuchsia-500/10"
+                >
+                  Retry Setup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

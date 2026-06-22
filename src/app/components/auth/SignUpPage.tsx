@@ -3,10 +3,11 @@ import { Mail, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
+import { sendOtp } from '@/app/lib/api';
 
 interface SignUpPageProps {
   onSignIn: () => void;
-  onSignUpSuccess: (email: string) => void;
+  onSignUpSuccess: (email: string, session: string) => void;
   onBack: () => void;
 }
 
@@ -43,24 +44,17 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
     if (!validate()) return;
 
     setIsLoading(true);
+    setError('');
     
-    // Simulate API call to check if user already exists
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Mock validation - check if user already registered
-    // In real app, this would be an API call
-    const mockRegisteredEmails = ['test@example.com', 'admin@nconnect.com'];
-    
-    if (mockRegisteredEmails.includes(email.toLowerCase())) {
+    try {
+      const result = await sendOtp(email);
       setIsLoading(false);
-      setError('This email is already registered. Please sign in instead.');
-      return;
+      onSignUpSuccess(email, result.session);
+    } catch (err: any) {
+      console.error('[SignUp] sendOtp failed:', err);
+      setError(err.message || 'Failed to send OTP code. Please try again.');
+      setIsLoading(false);
     }
-    
-    // Mock success - store to localStorage for the verification/profile step
-    localStorage.setItem('nconnect_signed_up_user', JSON.stringify({ email }));
-    setIsLoading(false);
-    onSignUpSuccess(email);
   };
 
   return (

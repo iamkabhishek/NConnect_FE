@@ -30,6 +30,9 @@ export interface UserPersona {
     reports: 'none' | 'viewer' | 'editor' | 'admin';
     media: 'none' | 'viewer' | 'editor' | 'admin';
   };
+  customUserId?: string;
+  customTenantId?: string | null;
+  tenantId?: string | null;
 }
 
 interface WorkspaceContextType {

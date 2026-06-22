@@ -4,10 +4,11 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { sendOtp } from '@/app/lib/api';
 
 interface SignInPageProps {
   onSignUp: () => void;
-  onSignInSuccess: (email: string) => void;
+  onSignInSuccess: (email: string, session: string) => void;
   onBack: () => void;
 }
 
@@ -45,15 +46,21 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
     if (!validate()) return;
 
     setIsLoading(true);
+    setError('');
     
-    // Simulate API call to check if user exists and session status
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Synchronize persona state in global workspace context (creates dynamic owner persona if brand new)
-    switchPersona(email);
-    
-    setIsLoading(false);
-    onSignInSuccess(email);
+    try {
+      const result = await sendOtp(email);
+      
+      // Synchronize persona state in global workspace context (creates dynamic owner persona if brand new)
+      switchPersona(email);
+      
+      setIsLoading(false);
+      onSignInSuccess(email, result.session);
+    } catch (err: any) {
+      console.error('[SignIn] sendOtp failed:', err);
+      setError(err.message || 'Failed to send OTP code. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -157,7 +164,7 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
         {/* Security Notice */}
         <div className="mt-6 p-4 bg-purple-50/50 rounded-xl border border-purple-100/50">
           <p className="text-xs text-purple-900 font-semibold text-center flex items-center justify-center gap-1.5">
-            🔒 Enter code <strong>123456</strong> on the next screen to verify successfully.
+            🔒 We'll send a 6-digit verification code to your email
           </p>
         </div>
       </div>
