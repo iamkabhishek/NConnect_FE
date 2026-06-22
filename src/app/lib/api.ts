@@ -42,7 +42,7 @@ export interface CompleteOnboardingResponse {
  * Initiates email passwordless authentication. Sends an OTP code to the email.
  */
 export async function sendOtp(email: string): Promise<SendOtpResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/passwordless/send`, {
+  const response = await fetch(`${API_URL}/api/v1/auth/passwordless/otp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
