@@ -158,7 +158,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
         </Button>
 
         {/* Form Card */}
-        <div className="bg-white rounded-xl shadow-lg p-12">
+        <div className="bg-white rounded-xl shadow-lg p-8 sm:p-10">
           {/* Icon */}
           <div className="flex justify-center mb-8">
             <div className="bg-blue-100 p-4 rounded-full">
@@ -192,15 +192,15 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
               pattern="[0-9]*"
               inputMode="numeric"
             >
-              <InputOTPGroup className="gap-2 justify-center">
-                <InputOTPSlot index={0} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={1} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={2} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={3} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={4} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={5} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={6} className="size-12 text-xl border-2" />
-                <InputOTPSlot index={7} className="size-12 text-xl border-2" />
+              <InputOTPGroup className="gap-1 sm:gap-1.5 justify-center">
+                <InputOTPSlot index={0} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={1} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={2} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={3} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={4} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={5} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={6} className="size-9 sm:size-10 text-lg border-2" />
+                <InputOTPSlot index={7} className="size-9 sm:size-10 text-lg border-2" />
               </InputOTPGroup>
             </InputOTP>
 
