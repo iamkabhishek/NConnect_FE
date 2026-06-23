@@ -50,9 +50,9 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // Auto-verify when 6 digits entered
+  // Auto-verify when 8 digits entered
   useEffect(() => {
-    if (otp.length === 6) {
+    if (otp.length === 8) {
       handleVerify(otp);
     }
   }, [otp]);
@@ -171,7 +171,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
             Verify your email
           </h1>
           <p className="text-center text-gray-600 mb-8">
-            We sent a 6-digit code to
+            We sent an 8-digit code to
             <br />
             <span className="font-semibold text-gray-900">{email}</span>
           </p>
@@ -179,7 +179,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
           {/* OTP Input */}
           <div className="mb-6">
             <InputOTP
-              maxLength={6}
+              maxLength={8}
               value={otp}
               onChange={(value) => {
                 // Only allow numbers
@@ -193,12 +193,14 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
               inputMode="numeric"
             >
               <InputOTPGroup className="gap-2 justify-center">
-                <InputOTPSlot index={0} className="size-14 text-2xl border-2" />
-                <InputOTPSlot index={1} className="size-14 text-2xl border-2" />
-                <InputOTPSlot index={2} className="size-14 text-2xl border-2" />
-                <InputOTPSlot index={3} className="size-14 text-2xl border-2" />
-                <InputOTPSlot index={4} className="size-14 text-2xl border-2" />
-                <InputOTPSlot index={5} className="size-14 text-2xl border-2" />
+                <InputOTPSlot index={0} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={1} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={2} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={3} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={4} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={5} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={6} className="size-12 text-xl border-2" />
+                <InputOTPSlot index={7} className="size-12 text-xl border-2" />
               </InputOTPGroup>
             </InputOTP>
 
@@ -256,10 +258,10 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
             )}
           </div>
 
-          {/* Verify Button (Optional - auto-submits on 6th digit) */}
+          {/* Verify Button (Optional - auto-submits on 8th digit) */}
           <Button
             onClick={() => handleVerify(otp)}
-            disabled={otp.length !== 6 || isLoading || timeLeft <= 0}
+            disabled={otp.length !== 8 || isLoading || timeLeft <= 0}
             className="w-full h-13 bg-blue-500 hover:bg-blue-600 text-white text-lg font-semibold mt-8"
           >
             {isLoading ? (
