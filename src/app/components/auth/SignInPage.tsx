@@ -64,32 +64,30 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-slate-50 to-purple-50/30 flex items-center justify-center p-6">
-      <div className="w-full max-w-xl">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
         {/* Back Button */}
         <Button
           variant="ghost"
           onClick={onBack}
-          className="mb-6 -ml-2 text-zinc-600 hover:text-purple-700 transition-colors"
+          className="mb-6 -ml-2"
         >
           <ArrowLeft className="size-4 mr-2" />
           Back to Home
         </Button>
 
         {/* Form Card */}
-        <div className="bg-white/80 border border-zinc-200/50 backdrop-blur-xl rounded-2xl shadow-xl shadow-purple-500/5 p-10">
+        <div className="bg-white rounded-xl shadow-lg p-12">
           {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-gradient-to-tr from-fuchsia-600 via-purple-600 to-indigo-600 p-3.5 rounded-2xl shadow-lg shadow-purple-500/20">
-              <Mail className="size-8 text-white" />
-            </div>
+          <div className="flex justify-center mb-8">
+            <Mail className="size-12 text-blue-500" />
           </div>
 
           {/* Header */}
-          <h1 className="text-3xl font-extrabold text-center text-zinc-950 tracking-tight mb-1">
+          <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
             Welcome back
           </h1>
-          <p className="text-center text-zinc-500 mb-8 font-medium">
+          <p className="text-center text-gray-600 mb-8">
             Enter your email to sign in
           </p>
 
@@ -97,7 +95,7 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
           <form onSubmit={onSubmit} className="space-y-6">
             {/* Email Field */}
             <div>
-              <Label htmlFor="email" className="text-sm font-bold text-zinc-800">
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-900">
                 Email Address
               </Label>
               <Input
@@ -106,7 +104,7 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
                 placeholder="you@example.com"
                 autoFocus
                 autoComplete="email"
-                className="mt-2 h-12 rounded-xl border-zinc-200 focus:border-purple-500 focus:ring-purple-500"
+                className="mt-2 h-12"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -114,9 +112,9 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
                 }}
               />
               {error && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                   <AlertCircle className="size-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs font-semibold text-red-600">{error}</p>
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
             </div>
@@ -125,7 +123,7 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-700 hover:to-indigo-700 text-white text-base font-bold rounded-xl shadow-lg shadow-purple-500/10 transition-all duration-200"
+              className="w-full h-13 bg-blue-500 hover:bg-blue-600 text-white text-lg font-semibold"
             >
               {isLoading ? (
                 <>
@@ -139,22 +137,22 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
           </form>
 
           {/* Sign Up Link */}
-          <p className="text-center text-sm text-zinc-600 mt-6 font-medium">
+          <p className="text-center text-sm text-gray-600 mt-6">
             Don't have an account?{' '}
             <button
               onClick={onSignUp}
-              className="text-purple-600 hover:text-purple-700 font-bold underline"
+              className="text-blue-600 hover:text-blue-700 font-semibold"
             >
               Sign up
             </button>
           </p>
 
           {/* Contact Support */}
-          <p className="text-center text-xs text-zinc-400 mt-4">
+          <p className="text-center text-sm text-gray-600 mt-3">
             Need help?{' '}
             <a
               href="/contact"
-              className="text-zinc-500 hover:text-purple-600 font-semibold underline"
+              className="text-blue-600 hover:text-blue-700 font-semibold"
             >
               Contact Support
             </a>
@@ -162,9 +160,9 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
         </div>
 
         {/* Security Notice */}
-        <div className="mt-6 p-4 bg-purple-50/50 rounded-xl border border-purple-100/50">
-          <p className="text-xs text-purple-900 font-semibold text-center flex items-center justify-center gap-1.5">
-            🔒 We'll send a 6-digit verification code to your email
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900 text-center">
+            🔒 We'll send an 8-digit verification code to your email
           </p>
         </div>
       </div>

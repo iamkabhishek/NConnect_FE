@@ -155,7 +155,7 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
         {/* Security Notice */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-sm text-blue-900 text-center">
-            🔒 We'll send a 6-digit verification code to your email
+            🔒 We'll send an 8-digit verification code to your email
           </p>
         </div>
       </div>

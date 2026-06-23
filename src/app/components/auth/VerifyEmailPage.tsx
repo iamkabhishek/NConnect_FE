@@ -154,16 +154,14 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
           className="mb-6 -ml-2"
         >
           <ArrowLeft className="size-4 mr-2" />
-          Back
+          Back to Login
         </Button>
 
         {/* Form Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8 sm:p-10">
-          {/* Icon */}
+        <div className="bg-white rounded-xl shadow-lg p-12">
+          {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className="bg-blue-100 p-4 rounded-full">
-              <Mail className="size-12 text-blue-600" />
-            </div>
+            <Mail className="size-12 text-blue-500" />
           </div>
 
           {/* Header */}
@@ -244,7 +242,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
           <div className="text-center">
             <p className="text-sm text-gray-600 mb-2">Didn't receive the code?</p>
             {resendCooldown > 0 ? (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 font-medium">
                 Resend available in {resendCooldown}s
               </p>
             ) : (
