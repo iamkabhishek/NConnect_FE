@@ -14,6 +14,7 @@ import ModuleCMS from './components/ModuleCMS';
 import ModuleSecurity from './components/ModuleSecurity';
 import ModuleNotifications from './components/ModuleNotifications';
 import ModuleHelpDesk from './components/ModuleHelpDesk';
+import ModuleScheduler from './components/ModuleScheduler';
 import { PlatformOperator, OwnerProfile } from './types';
 import { Button } from '@/app/components/ui/button';
 
@@ -150,6 +151,8 @@ export default function OpsCockpitPage() {
         return <ModuleBilling />;
       case 3:
         return <ModuleCoupons />;
+      case 4:
+        return <ModuleScheduler />;
       case 5:
         return <ModuleCMS />;
       case 6:

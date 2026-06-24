@@ -33,9 +33,10 @@ import { Button } from '@/app/components/ui/button';
 
 interface LandingPageProps {
   onGetStarted?: () => void;
+  onBookDemo?: () => void;
 }
 
-function LandingPage({ onGetStarted }: LandingPageProps) {
+function LandingPage({ onGetStarted, onBookDemo }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('workspaces');
   const { scrollYProgress } = useScroll();
@@ -206,6 +207,18 @@ function LandingPage({ onGetStarted }: LandingPageProps) {
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#4A90E2] transition-all group-hover:w-full" />
                 </motion.button>
               ))}
+              {onBookDemo && (
+                <motion.button
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                  onClick={onBookDemo}
+                  className="text-[#4A90E2] hover:text-[#3A7BC8] transition-colors text-sm font-bold relative group"
+                >
+                  Book a Demo
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#4A90E2] transition-all group-hover:w-full" />
+                </motion.button>
+              )}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -249,7 +262,15 @@ function LandingPage({ onGetStarted }: LandingPageProps) {
                   {item}
                 </button>
               ))}
-              <Button className="w-full bg-[#4A90E2] hover:bg-[#3A7BC8] text-white">
+              {onBookDemo && (
+                <button
+                  onClick={onBookDemo}
+                  className="block w-full text-left px-4 py-2 text-[#4A90E2] hover:bg-gray-50 rounded-lg transition-colors font-bold"
+                >
+                  Book a Demo
+                </button>
+              )}
+              <Button onClick={onGetStarted} className="w-full bg-[#4A90E2] hover:bg-[#3A7BC8] text-white">
                 Get Started
               </Button>
             </div>
@@ -323,13 +344,16 @@ function LandingPage({ onGetStarted }: LandingPageProps) {
                 Start Free Trial
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-2 border-gray-300 hover:border-[#4A90E2] text-gray-700 hover:text-[#4A90E2] px-8"
-              >
-                Watch Demo
-              </Button>
+              {onBookDemo && (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={onBookDemo}
+                  className="border-2 border-zinc-200 hover:border-[#4A90E2] text-zinc-700 hover:text-[#4A90E2] px-8 shadow-sm transition-all"
+                >
+                  Book a Demo
+                </Button>
+              )}
             </motion.div>
           </div>
 

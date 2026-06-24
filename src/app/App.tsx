@@ -28,6 +28,7 @@ import { WorkflowWizard } from '@/app/components/automation/WorkflowWizard';
 import { SenderEmailsPage } from '@/app/components/senders/SenderEmailsPage';
 import { DocumentationPage } from '@/app/components/documentation/DocumentationPage';
 import { ArticleDetailPage } from '@/app/components/documentation/ArticleDetailPage';
+import { DemoBookingWizard } from '@/app/components/demo-scheduler/DemoBookingWizard';
 
 type AuthModule = 
   | 'landing'
@@ -55,7 +56,8 @@ type AuthModule =
   | 'workflow-wizard'
   | 'sender-emails'
   | 'documentation'
-  | 'documentation-article';
+  | 'documentation-article'
+  | 'demo-booking';
 
 function AppContent() {
   const { currentUser, switchPersona } = useWorkspace();
@@ -148,7 +150,10 @@ function AppContent() {
 
       {/* Render Current Module with the active user context */}
       {currentModule === 'landing' && (
-        <LandingPage onGetStarted={() => setCurrentModule('welcome')} />
+        <LandingPage 
+          onGetStarted={() => setCurrentModule('welcome')} 
+          onBookDemo={() => setCurrentModule('demo-booking')}
+        />
       )}
 
       {currentModule === 'welcome' && (
@@ -277,6 +282,10 @@ function AppContent() {
           onNavigate={handleModuleChange}
           onBackToDocumentation={() => setCurrentModule('documentation')}
         />
+      )}
+
+      {currentModule === 'demo-booking' && (
+        <DemoBookingWizard onBackToLanding={() => setCurrentModule('landing')} />
       )}
     </div>
   );

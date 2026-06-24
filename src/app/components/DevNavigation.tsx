@@ -27,6 +27,7 @@ const modules = [
   { id: 'workspaces', name: 'Workspaces Module', completed: true },
   { id: 'settings', name: 'Settings Module', completed: true },
   { id: 'documentation', name: 'Documentation', completed: true },
+  { id: 'demo-booking', name: 'Demo Booking Wizard', completed: true },
 ];
 
 export function DevNavigation({ currentModule, onModuleChange }: DevNavigationProps) {

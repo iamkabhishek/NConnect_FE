@@ -13,7 +13,8 @@ import {
   FileText,
   Terminal,
   BellRing,
-  HelpCircle
+  HelpCircle,
+  CalendarDays
 } from 'lucide-react';
 import { PlatformOperator } from '../types';
 
@@ -42,6 +43,7 @@ export default function OpsSidebar({ activeTab, setActiveTab, activeOperator }: 
     {
       title: "Platform Operations",
       items: [
+        { id: 4, label: "Demo Scheduling", icon: CalendarDays },
         { id: 5, label: "CMS Policy Manager", icon: FileText },
         { id: 6, label: "Security & Keys", icon: Terminal },
         { id: 7, label: "Notification Workflows", icon: BellRing },
