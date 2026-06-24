@@ -9,6 +9,13 @@ import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { toast } from 'sonner';
 import { getProfile, updateProfile } from '@/app/lib/api';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/app/components/ui/select';
+import {
   Settings,
   User,
   Briefcase,
@@ -26,6 +33,21 @@ import {
   Trash2,
   RefreshCw,
   Lock,
+  Building2,
+  Globe,
+  MapPin,
+  Sparkles,
+  Layers,
+  Users,
+  HardDrive,
+  Send,
+  Inbox,
+  ArrowLeftRight,
+  Phone,
+  Clock,
+  FileText,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react';
 
 interface SettingsPageProps {
@@ -83,6 +105,102 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
     fullName: currentUser?.name || 'John Doe',
     email: currentUser?.email || 'john@example.com',
   });
+
+  const [profileSubTab, setProfileSubTab] = useState<'personal' | 'agency' | 'workspace' | 'plan' | 'useCase'>('personal');
+  const [onboardingData, setOnboardingData] = useState<any>(null);
+
+  // Load onboarding details on mount or user/workspace context switch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedData = localStorage.getItem('nconnect_onboarding_data');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setOnboardingData(parsed);
+          // Keep name in sync if parsed has firstName and lastName
+          if (parsed?.personal?.firstName) {
+            const computedName = `${parsed.personal.firstName} ${parsed.personal.lastName || ''}`.trim();
+            setProfileSettings((prev) => ({
+              ...prev,
+              fullName: computedName,
+            }));
+          }
+        } catch (e) {
+          console.error('Failed to parse cached onboarding data', e);
+        }
+      } else {
+        // Fallback default details so page is beautifully populated with mock details
+        const initialOnboarding = {
+          personal: {
+            firstName: currentUser?.name?.split(' ')[0] || 'John',
+            lastName: currentUser?.name?.split(' ')[1] || 'Doe',
+            company: 'Acme Agency',
+            role: 'Marketer',
+            phone: '+1 (555) 019-2834'
+          },
+          agency: {
+            name: 'Acme Agency',
+            category: 'Marketing Agency',
+            registrationNo: 'REG-2024-991',
+            gstRegistrationNo: 'GST-IN-22919A',
+            website: 'https://acmeagency.com',
+            size: '11-50 employees',
+            timezone: 'UTC-5 (EST)',
+            email: currentUser?.email || 'hello@acmeagency.com',
+            alternateEmail: 'ops@acmeagency.com',
+            phoneNumber: '+1 (555) 019-2834',
+            telephoneNumber: '+1 (555) 019-2835',
+            address: {
+              addressLine1: '123 Innovation Way',
+              addressLine2: 'Suite 400',
+              city: 'New York',
+              state: 'NY',
+              country: 'United States',
+              pincode: '10001',
+              addressType: 'REGISTERED'
+            },
+            socials: {
+              facebook: 'https://facebook.com/acmeagency',
+              twitter: 'https://twitter.com/acmeagency',
+              linkedin: 'https://linkedin.com/company/acmeagency',
+              instagram: 'https://instagram.com/acmeagency'
+            }
+          },
+          workspace: {
+            name: selectedWorkspace?.name || 'Acme Workspace',
+            identifier: selectedWorkspace?.id || 'acme-hq',
+            description: 'Main communication workspace for Acme campaigns.',
+            color: selectedWorkspace?.color || '#4A90E2'
+          },
+          plan: {
+            tier: 'Pro',
+            cycle: 'yearly',
+            addons: {
+              workspaces: 2,
+              users: 5,
+              storage: 50
+            },
+            pricing: {
+              basePrice: 79,
+              addonsPrice: 25,
+              subtotal: 104,
+              discount: 15,
+              gst: 16,
+              total: 105
+            }
+          },
+          useCase: {
+            primaryGoal: 'both',
+            subscriberCount: 'Growing (100-500)',
+            frequency: 'Weekly',
+            industry: 'Technology / SaaS'
+          }
+        };
+        setOnboardingData(initialOnboarding);
+        localStorage.setItem('nconnect_onboarding_data', JSON.stringify(initialOnboarding));
+      }
+    }
+  }, [currentUser, selectedWorkspace]);
 
   // Keep state synchronized with selected workspace and current user switch
   useEffect(() => {
@@ -227,26 +345,61 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   };
 
   const handleSaveProfile = async () => {
-    console.log('Saving profile settings:', profileSettings);
+    console.log('Saving profile settings:', profileSettings, onboardingData);
     try {
+      setIsLoadingProfile(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
-      if (token) {
-        await updateProfile(token, profileSettings.fullName);
+
+      // Compute full name if we have onboarding personal details, otherwise fall back to profileSettings.fullName
+      const computedFullName = onboardingData?.personal
+        ? `${onboardingData.personal.firstName || ''} ${onboardingData.personal.lastName || ''}`.trim()
+        : profileSettings.fullName;
+
+      if (token && computedFullName) {
+        await updateProfile(token, computedFullName);
       }
 
-      if (currentUser) {
-        const initials = profileSettings.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+      if (currentUser && computedFullName) {
+        const initials = computedFullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
         setCurrentUser({
           ...currentUser,
-          name: profileSettings.fullName,
+          name: computedFullName,
           email: profileSettings.email,
           avatar: initials || currentUser.avatar,
         });
       }
-      toast.success('Profile settings updated successfully!');
+
+      // Save onboarding data back to localStorage
+      if (typeof window !== 'undefined' && onboardingData) {
+        localStorage.setItem('nconnect_onboarding_data', JSON.stringify(onboardingData));
+
+        // Also update the workspace context settings if workspace details changed
+        if (onboardingData.workspace && selectedWorkspace) {
+          const updatedWorkspace = {
+            ...selectedWorkspace,
+            name: onboardingData.workspace.name,
+            color: onboardingData.workspace.color,
+            description: onboardingData.workspace.description,
+          };
+          setSelectedWorkspace(updatedWorkspace);
+          setWorkspaceSettings((prev) => ({
+            ...prev,
+            name: onboardingData.workspace.name,
+          }));
+        }
+      }
+
+      setProfileSettings((prev) => ({
+        ...prev,
+        fullName: computedFullName,
+      }));
+
+      toast.success('Profile and onboarding settings synchronized successfully!');
     } catch (err: any) {
-      console.error('[Settings] Failed to save profile to API:', err);
+      console.error('[Settings] Failed to save profile and onboarding details:', err);
       toast.error(err.message || 'Failed to update profile settings.');
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -510,50 +663,746 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
               {activeTab === 'profile' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Settings</h2>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile & Onboarding Details</h2>
                     <p className="text-sm text-gray-600">
-                      Update your personal information
+                      View and manage your profile settings alongside detailed operational data captured during your onboarding.
                     </p>
                   </div>
 
-                  <div className="space-y-6">
-                    {/* Personal Information */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900">Personal Information</h3>
+                  {/* Operational Onboarding Sub-Tabs */}
+                  <div className="flex border-b border-gray-200 pb-px overflow-x-auto whitespace-nowrap scrollbar-none gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProfileSubTab('personal')}
+                      className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-all border-b-2 rounded-t-lg ${
+                        profileSubTab === 'personal'
+                          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                          : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <User className="size-4" />
+                      Personal details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileSubTab('agency')}
+                      className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-all border-b-2 rounded-t-lg ${
+                        profileSubTab === 'agency'
+                          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                          : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Building2 className="size-4" />
+                      Agency Details
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileSubTab('workspace')}
+                      className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-all border-b-2 rounded-t-lg ${
+                        profileSubTab === 'workspace'
+                          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                          : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Layers className="size-4" />
+                      Workspace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileSubTab('plan')}
+                      className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-all border-b-2 rounded-t-lg ${
+                        profileSubTab === 'plan'
+                          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                          : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <CreditCard className="size-4" />
+                      Subscription & Plan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProfileSubTab('useCase')}
+                      className={`flex items-center gap-2 px-4 py-2.5 font-medium text-sm transition-all border-b-2 rounded-t-lg ${
+                        profileSubTab === 'useCase'
+                          ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                          : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Activity className="size-4" />
+                      Use Case
+                    </button>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="fullName">Full Name</Label>
-                        <Input
-                          id="fullName"
-                          value={profileSettings.fullName}
-                          onChange={(e) =>
-                            setProfileSettings({ ...profileSettings, fullName: e.target.value })
-                          }
-                          disabled={isLoadingProfile}
-                          placeholder="John Doe"
-                        />
+                  <div className="space-y-6 pt-2">
+                    {/* Personal Sub-tab */}
+                    {profileSubTab === 'personal' && onboardingData?.personal && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <h3 className="font-semibold text-gray-900 text-base">Personal Information</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="firstName">First Name</Label>
+                            <Input
+                              id="firstName"
+                              value={onboardingData.personal.firstName || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.personal.firstName = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="John"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="lastName">Last Name</Label>
+                            <Input
+                              id="lastName"
+                              value={onboardingData.personal.lastName || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.personal.lastName = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="Doe"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email Address</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={profileSettings.email}
+                            disabled
+                            className="bg-zinc-50 text-zinc-500 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="company">Company</Label>
+                            <Input
+                              id="company"
+                              value={onboardingData.personal.company || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.personal.company = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="Acme Inc"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="role">Role</Label>
+                            <Select
+                              value={onboardingData.personal.role || ''}
+                              onValueChange={(val) => {
+                                const updated = { ...onboardingData };
+                                updated.personal.role = val;
+                                setOnboardingData(updated);
+                              }}
+                            >
+                              <SelectTrigger id="role">
+                                <SelectValue placeholder="Select your role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Content Creator">Content Creator</SelectItem>
+                                <SelectItem value="Marketer">Marketer</SelectItem>
+                                <SelectItem value="Developer/Engineer">Developer/Engineer</SelectItem>
+                                <SelectItem value="Business Owner/Founder">Business Owner/Founder</SelectItem>
+                                <SelectItem value="Agency Executive">Agency Executive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone Number</Label>
+                          <Input
+                            id="phone"
+                            value={onboardingData.personal.phone || ''}
+                            onChange={(e) => {
+                              const updated = { ...onboardingData };
+                              updated.personal.phone = e.target.value;
+                              setOnboardingData(updated);
+                            }}
+                            placeholder="+1 (555) 019-2834"
+                          />
+                        </div>
                       </div>
+                    )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={profileSettings.email}
-                          disabled
-                          className="bg-zinc-50 text-zinc-500 cursor-not-allowed"
-                          placeholder="john@example.com"
-                        />
+                    {/* Agency Sub-tab */}
+                    {profileSubTab === 'agency' && onboardingData?.agency && (
+                      <div className="space-y-6 animate-fadeIn">
+                        <h3 className="font-semibold text-gray-900 text-base">Agency & Corporate Registration Details</h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="agencyName">Agency Name</Label>
+                            <Input
+                              id="agencyName"
+                              value={onboardingData.agency.name || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.name = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="My Agency"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="agencyCategory">Category</Label>
+                            <Select
+                              value={onboardingData.agency.category || ''}
+                              onValueChange={(val) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.category = val;
+                                setOnboardingData(updated);
+                              }}
+                            >
+                              <SelectTrigger id="agencyCategory">
+                                <SelectValue placeholder="Select Category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Marketing Agency">Marketing Agency</SelectItem>
+                                <SelectItem value="Advertising Agency">Advertising Agency</SelectItem>
+                                <SelectItem value="Consulting Agency">Consulting Agency</SelectItem>
+                                <SelectItem value="PR/Communications Agency">PR/Communications Agency</SelectItem>
+                                <SelectItem value="Design Studio">Design Studio</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="regNo">Registration Number</Label>
+                            <Input
+                              id="regNo"
+                              value={onboardingData.agency.registrationNo || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.registrationNo = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="REG-12345"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="gstNo">GST Registration No</Label>
+                            <Input
+                              id="gstNo"
+                              value={onboardingData.agency.gstRegistrationNo || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.gstRegistrationNo = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="GST-12345"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="agencyWebsite">Website</Label>
+                            <Input
+                              id="agencyWebsite"
+                              value={onboardingData.agency.website || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.website = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="https://example.com"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="agencySize">Company Size</Label>
+                            <Select
+                              value={onboardingData.agency.size || ''}
+                              onValueChange={(val) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.size = val;
+                                setOnboardingData(updated);
+                              }}
+                            >
+                              <SelectTrigger id="agencySize">
+                                <SelectValue placeholder="Select Size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1-10 employees">1-10 employees</SelectItem>
+                                <SelectItem value="11-50 employees">11-50 employees</SelectItem>
+                                <SelectItem value="51-200 employees">51-200 employees</SelectItem>
+                                <SelectItem value="201-500 employees">201-500 employees</SelectItem>
+                                <SelectItem value="500+ employees">500+ employees</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="agencyEmail">Primary Email</Label>
+                            <Input
+                              id="agencyEmail"
+                              type="email"
+                              value={onboardingData.agency.email || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.email = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="hello@agency.com"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="agencyAltEmail">Alternate Email</Label>
+                            <Input
+                              id="agencyAltEmail"
+                              type="email"
+                              value={onboardingData.agency.alternateEmail || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.alternateEmail = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="ops@agency.com"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Address */}
+                        <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/50 space-y-4">
+                          <h4 className="font-semibold text-sm text-gray-800 flex items-center gap-2">
+                            <MapPin className="size-4 text-blue-600" /> Address Details
+                          </h4>
+                          <div className="space-y-2">
+                            <Label htmlFor="addressLine1">Address Line 1</Label>
+                            <Input
+                              id="addressLine1"
+                              value={onboardingData.agency.address?.addressLine1 || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.agency.address.addressLine1 = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="Street address"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="city">City</Label>
+                              <Input
+                                id="city"
+                                value={onboardingData.agency.address?.city || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.address.city = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="City"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="state">State</Label>
+                              <Input
+                                id="state"
+                                value={onboardingData.agency.address?.state || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.address.state = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="State"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="country">Country</Label>
+                              <Input
+                                id="country"
+                                value={onboardingData.agency.address?.country || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.address.country = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="Country"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="pincode">Pincode</Label>
+                              <Input
+                                id="pincode"
+                                value={onboardingData.agency.address?.pincode || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.address.pincode = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="Pincode"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Social Links */}
+                        <div className="p-4 border border-gray-100 rounded-lg bg-gray-50/50 space-y-4">
+                          <h4 className="font-semibold text-sm text-gray-800 flex items-center gap-2">
+                            <Globe className="size-4 text-blue-600" /> Social Links
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="facebook">Facebook</Label>
+                              <Input
+                                id="facebook"
+                                value={onboardingData.agency.socials?.facebook || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.socials.facebook = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="https://facebook.com/..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="twitter">Twitter</Label>
+                              <Input
+                                id="twitter"
+                                value={onboardingData.agency.socials?.twitter || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.socials.twitter = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="https://twitter.com/..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="linkedin">LinkedIn</Label>
+                              <Input
+                                id="linkedin"
+                                value={onboardingData.agency.socials?.linkedin || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.socials.linkedin = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="https://linkedin.com/..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="instagram">Instagram</Label>
+                              <Input
+                                id="instagram"
+                                value={onboardingData.agency.socials?.instagram || ''}
+                                onChange={(e) => {
+                                  const updated = { ...onboardingData };
+                                  updated.agency.socials.instagram = e.target.value;
+                                  setOnboardingData(updated);
+                                }}
+                                placeholder="https://instagram.com/..."
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
+                    {/* Workspace Sub-tab */}
+                    {profileSubTab === 'workspace' && onboardingData?.workspace && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <h3 className="font-semibold text-gray-900 text-base">Workspace branding & Configuration</h3>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="workspaceName">Workspace Name</Label>
+                          <Input
+                            id="workspaceName"
+                            value={onboardingData.workspace.name || ''}
+                            onChange={(e) => {
+                              const updated = { ...onboardingData };
+                              updated.workspace.name = e.target.value;
+                              setOnboardingData(updated);
+                            }}
+                            placeholder="My Workspace"
+                          />
+                        </div>
 
+                        <div className="space-y-2">
+                          <Label htmlFor="workspaceIdentifier">Workspace Slug / Domain</Label>
+                          <div className="flex items-center">
+                            <Input
+                              id="workspaceIdentifier"
+                              value={onboardingData.workspace.identifier || ''}
+                              onChange={(e) => {
+                                const updated = { ...onboardingData };
+                                updated.workspace.identifier = e.target.value;
+                                setOnboardingData(updated);
+                              }}
+                              placeholder="my-workspace"
+                            />
+                            <span className="ml-2 text-sm text-gray-500 font-medium">.nconnect.com</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="workspaceDesc">Workspace Description</Label>
+                          <Textarea
+                            id="workspaceDesc"
+                            value={onboardingData.workspace.description || ''}
+                            onChange={(e) => {
+                              const updated = { ...onboardingData };
+                              updated.workspace.description = e.target.value;
+                              setOnboardingData(updated);
+                            }}
+                            placeholder="A short description of your workspace..."
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Accent / Branding Color</Label>
+                          <div className="flex flex-wrap gap-3 pt-1">
+                            {[
+                              { name: 'Blue', value: '#4A90E2' },
+                              { name: 'Green', value: '#27AE60' },
+                              { name: 'Purple', value: '#9B59B6' },
+                              { name: 'Red', value: '#E74C3C' },
+                              { name: 'Orange', value: '#F39C12' },
+                              { name: 'Teal', value: '#1ABC9C' },
+                              { name: 'Dark Gray', value: '#34495E' },
+                              { name: 'Pink', value: '#E91E63' },
+                            ].map((colorObj) => (
+                              <button
+                                key={colorObj.value}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...onboardingData };
+                                  updated.workspace.color = colorObj.value;
+                                  setOnboardingData(updated);
+                                }}
+                                className="group relative size-8 rounded-full border border-gray-200 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                                style={{ backgroundColor: colorObj.value }}
+                                title={colorObj.name}
+                              >
+                                {onboardingData.workspace.color === colorObj.value && (
+                                  <span className="size-2.5 rounded-full bg-white shadow-sm" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Plan Sub-tab */}
+                    {profileSubTab === 'plan' && onboardingData?.plan && (
+                      <div className="space-y-6 animate-fadeIn">
+                        <h3 className="font-semibold text-gray-900 text-base">Active Subscription Plan</h3>
+                        
+                        {/* Plan Showcase Card */}
+                        <div className="relative overflow-hidden p-6 rounded-xl text-white bg-gradient-to-br from-indigo-600 via-blue-600 to-fuchsia-600 shadow-lg border border-indigo-500/20">
+                          <div className="absolute top-0 right-0 p-8 transform translate-x-4 -translate-y-4 opacity-10">
+                            <CreditCard className="size-48" />
+                          </div>
+                          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                              <span className="px-2.5 py-1 text-xs font-bold uppercase tracking-wider bg-white/20 rounded-full text-white/90">
+                                {onboardingData.plan.cycle === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}
+                              </span>
+                              <h3 className="text-3xl font-extrabold mt-2 flex items-center gap-2">
+                                {onboardingData.plan.tier || 'Pro'} Tier <Sparkles className="size-5 text-amber-300 animate-pulse" />
+                              </h3>
+                              <p className="text-white/80 text-sm mt-1 max-w-md">
+                                Fully featured high-volume email operations active with comprehensive automation, custom reviews, and live tracking.
+                              </p>
+                            </div>
+                            <div className="text-right flex flex-col items-end">
+                              <span className="text-sm text-white/70">Subtotal Price</span>
+                              <span className="text-4xl font-black">${onboardingData.plan.pricing?.total || 105} <span className="text-lg font-normal">/ yr</span></span>
+                              <span className="text-xs text-white/60 mt-0.5">including GST & Addons</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Plan limits / Addons */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="p-4 border border-gray-100 bg-gray-50/50 rounded-lg text-center space-y-1">
+                            <Layers className="size-5 mx-auto text-blue-600" />
+                            <h4 className="font-semibold text-gray-900 text-sm">Workspaces</h4>
+                            <p className="text-2xl font-bold text-gray-900">{onboardingData.plan.addons?.workspaces || 2}</p>
+                            <span className="text-xs text-gray-500">Active Slots</span>
+                          </div>
+                          <div className="p-4 border border-gray-100 bg-gray-50/50 rounded-lg text-center space-y-1">
+                            <Users className="size-5 mx-auto text-blue-600" />
+                            <h4 className="font-semibold text-gray-900 text-sm">Team Seats</h4>
+                            <p className="text-2xl font-bold text-gray-900">{onboardingData.plan.addons?.users || 5}</p>
+                            <span className="text-xs text-gray-500">Allowed Members</span>
+                          </div>
+                          <div className="p-4 border border-gray-100 bg-gray-50/50 rounded-lg text-center space-y-1">
+                            <HardDrive className="size-5 mx-auto text-blue-600" />
+                            <h4 className="font-semibold text-gray-900 text-sm">Media Storage</h4>
+                            <p className="text-2xl font-bold text-gray-900">{onboardingData.plan.addons?.storage || 50} GB</p>
+                            <span className="text-xs text-gray-500">Cloud Files Capacity</span>
+                          </div>
+                        </div>
+
+                        {/* Financial invoice receipt summary */}
+                        <div className="border border-dashed border-gray-200 rounded-lg p-4 bg-zinc-50 space-y-3">
+                          <h4 className="font-bold text-sm text-gray-800 flex items-center gap-1.5">
+                            <FileText className="size-4 text-gray-500" /> Pricing Breakout Invoice
+                          </h4>
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            <div className="flex justify-between">
+                              <span>Base Plan Price ({onboardingData.plan.tier || 'Pro'})</span>
+                              <span>${onboardingData.plan.pricing?.basePrice || 79}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Limits & Addons Price</span>
+                              <span>+${onboardingData.plan.pricing?.addonsPrice || 25}</span>
+                            </div>
+                            <div className="flex justify-between border-t border-gray-200/50 pt-1.5">
+                              <span>Subtotal</span>
+                              <span>${onboardingData.plan.pricing?.subtotal || 104}</span>
+                            </div>
+                            <div className="flex justify-between text-green-600">
+                              <span>Discount Applied</span>
+                              <span>-${onboardingData.plan.pricing?.discount || 15}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Government Tax (GST 18%)</span>
+                              <span>+${onboardingData.plan.pricing?.gst || 16}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1.5 text-base">
+                              <span>Final Total Billed</span>
+                              <span>${onboardingData.plan.pricing?.total || 105}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Use Case Sub-tab */}
+                    {profileSubTab === 'useCase' && onboardingData?.useCase && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <h3 className="font-semibold text-gray-900 text-base">Target Operations & Intent</h3>
+                        
+                        <div className="space-y-2">
+                          <Label>Primary Campaign Goal</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {[
+                              { id: 'send', title: 'Send Campaigns Only', icon: <Send className="size-5 text-blue-600" />, desc: 'Focus strictly on dispatching marketing newsletters.' },
+                              { id: 'receive', title: 'Receive & Manage', icon: <Inbox className="size-5 text-blue-600" />, desc: 'Handle high-volume customer correspondence.' },
+                              { id: 'both', title: 'Dual Operations', icon: <ArrowLeftRight className="size-5 text-blue-600" />, desc: 'Fully bi-directional automated mailing pipeline.' },
+                            ].map((goalObj) => (
+                              <button
+                                key={goalObj.id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = { ...onboardingData };
+                                  updated.useCase.primaryGoal = goalObj.id;
+                                  setOnboardingData(updated);
+                                }}
+                                className={`p-4 border-2 rounded-lg text-left transition-all hover:border-blue-300 ${
+                                  onboardingData.useCase.primaryGoal === goalObj.id
+                                    ? 'border-blue-600 bg-blue-50/50'
+                                    : 'border-gray-200 hover:border-blue-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-1.5 font-bold text-gray-900 text-sm">
+                                  {goalObj.icon}
+                                  {goalObj.title}
+                                </div>
+                                <p className="text-xs text-gray-500 leading-normal">{goalObj.desc}</p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="useCaseSubCount">Estimated Contact Count / Volume</Label>
+                          <Select
+                            value={onboardingData.useCase.subscriberCount || ''}
+                            onValueChange={(val) => {
+                              const updated = { ...onboardingData };
+                              updated.useCase.subscriberCount = val;
+                              setOnboardingData(updated);
+                            }}
+                          >
+                            <SelectTrigger id="useCaseSubCount">
+                              <SelectValue placeholder="Select contact range" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Just starting (0-100)">Just starting (0-100)</SelectItem>
+                              <SelectItem value="Growing (100-500)">Growing (100-500)</SelectItem>
+                              <SelectItem value="Established (500-1,000)">Established (500-1,000)</SelectItem>
+                              <SelectItem value="Scaling (1,000-5,000)">Scaling (1,000-5,000)</SelectItem>
+                              <SelectItem value="Enterprise (5,000+)">Enterprise (5,000+)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="useCaseFrequency">Mailing Frequency</Label>
+                            <Select
+                              value={onboardingData.useCase.frequency || ''}
+                              onValueChange={(val) => {
+                                const updated = { ...onboardingData };
+                                updated.useCase.frequency = val;
+                                setOnboardingData(updated);
+                              }}
+                            >
+                              <SelectTrigger id="useCaseFrequency">
+                                <SelectValue placeholder="Select frequency" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Daily">Daily</SelectItem>
+                                <SelectItem value="Weekly">Weekly</SelectItem>
+                                <SelectItem value="Bi-weekly">Bi-weekly</SelectItem>
+                                <SelectItem value="Monthly">Monthly</SelectItem>
+                                <SelectItem value="Irregular / Seasonal">Irregular / Seasonal</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="useCaseIndustry">Industry Vertical</Label>
+                            <Select
+                              value={onboardingData.useCase.industry || ''}
+                              onValueChange={(val) => {
+                                const updated = { ...onboardingData };
+                                updated.useCase.industry = val;
+                                setOnboardingData(updated);
+                              }}
+                            >
+                              <SelectTrigger id="useCaseIndustry">
+                                <SelectValue placeholder="Select industry" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Technology / SaaS">Technology / SaaS</SelectItem>
+                                <SelectItem value="E-commerce">E-commerce</SelectItem>
+                                <SelectItem value="Real Estate">Real Estate</SelectItem>
+                                <SelectItem value="Healthcare / Wellness">Healthcare / Wellness</SelectItem>
+                                <SelectItem value="Education">Education</SelectItem>
+                                <SelectItem value="Marketing / Creative Agency">Marketing / Creative Agency</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end pt-4 border-t">
                     <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700" disabled={isLoadingProfile}>
                       <Save className="size-4 mr-2" />
-                      {isLoadingProfile ? 'Loading...' : 'Save Changes'}
+                      {isLoadingProfile ? 'Loading...' : 'Save Profile Changes'}
                     </Button>
                   </div>
                 </div>
