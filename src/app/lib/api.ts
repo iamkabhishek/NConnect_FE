@@ -41,13 +41,13 @@ export interface CompleteOnboardingResponse {
 /**
  * Initiates email passwordless authentication. Sends an OTP code to the email.
  */
-export async function sendOtp(email: string): Promise<SendOtpResponse> {
+export async function sendOtp(email: string, flow?: 'signin' | 'signup'): Promise<SendOtpResponse> {
   const response = await fetch(`${API_URL}/api/v1/auth/passwordless/otp`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, flow }),
   });
 
   const data = await response.json();
@@ -181,3 +181,23 @@ export async function refreshCognitoTokens(refreshToken: string): Promise<Verify
     expiresIn: authResult.ExpiresIn || 3600,
   };
 }
+
+/**
+ * Fetches the user profile from /api/v1/users/profile
+ */
+export async function getProfile(token: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/users/profile`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to fetch user profile.');
+  }
+
+  return data;
+}
+

@@ -49,7 +49,7 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
     setError('');
     
     try {
-      const result = await sendOtp(email);
+      const result = await sendOtp(email, 'signin');
       
       // Synchronize persona state in global workspace context (creates dynamic owner persona if brand new)
       switchPersona(email);

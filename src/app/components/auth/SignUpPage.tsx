@@ -47,7 +47,7 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
     setError('');
     
     try {
-      const result = await sendOtp(email);
+      const result = await sendOtp(email, 'signup');
       setIsLoading(false);
       onSignUpSuccess(email, result.session);
     } catch (err: any) {

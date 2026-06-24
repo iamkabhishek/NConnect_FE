@@ -273,12 +273,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
           </Button>
         </div>
 
-        {/* Help Text */}
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
-          <p className="text-xs text-gray-600 text-center">
-            💡 <strong>Demo:</strong> Use <strong>123456</strong> to verify. Only numeric digits are allowed.
-          </p>
-        </div>
+
       </div>
     </div>
   );

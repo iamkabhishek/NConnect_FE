@@ -7,6 +7,7 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { toast } from 'sonner';
+import { getProfile, updateProfile } from '@/app/lib/api';
 import {
   Settings,
   User,
@@ -37,6 +38,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const { currentUser, selectedWorkspace, setCurrentUser, setSelectedWorkspace } = useWorkspace();
   const userName = currentUser?.name || 'John Doe';
   const [activeTab, setActiveTab] = useState<SettingsTab>('workspace');
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Load active tab from URL query params on mount/update
   useEffect(() => {
@@ -108,6 +110,41 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
       setActiveTab('workspace');
     }
   }, [currentUser, activeTab]);
+
+  // Fetch persistent user profile from backend on profile tab mount
+  useEffect(() => {
+    if (activeTab === 'profile') {
+      const fetchProfile = async () => {
+        setIsLoadingProfile(true);
+        try {
+          const token = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+          if (token) {
+            const result = await getProfile(token);
+            if (result && result.user) {
+              setProfileSettings({
+                fullName: result.user.name || '',
+                email: result.user.email || '',
+              });
+              // Keep Context/localStorage persona state in sync with actual DB
+              if (currentUser && (currentUser.name !== result.user.name || currentUser.email !== result.user.email)) {
+                setCurrentUser({
+                  ...currentUser,
+                  name: result.user.name || currentUser.name,
+                  email: result.user.email || currentUser.email,
+                });
+              }
+            }
+          }
+        } catch (err: any) {
+          console.error('[Settings] Failed to fetch profile from backend API:', err);
+          toast.error('Failed to load profile details from server.');
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      };
+      fetchProfile();
+    }
+  }, [activeTab]);
 
   // ESP Integration State
   const [espProviders] = useState([
@@ -189,17 +226,27 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     console.log('Saving profile settings:', profileSettings);
-    if (currentUser) {
-      const initials = profileSettings.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
-      setCurrentUser({
-        ...currentUser,
-        name: profileSettings.fullName,
-        email: profileSettings.email,
-        avatar: initials || currentUser.avatar,
-      });
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+      if (token) {
+        await updateProfile(token, profileSettings.fullName);
+      }
+
+      if (currentUser) {
+        const initials = profileSettings.fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
+        setCurrentUser({
+          ...currentUser,
+          name: profileSettings.fullName,
+          email: profileSettings.email,
+          avatar: initials || currentUser.avatar,
+        });
+      }
       toast.success('Profile settings updated successfully!');
+    } catch (err: any) {
+      console.error('[Settings] Failed to save profile to API:', err);
+      toast.error(err.message || 'Failed to update profile settings.');
     }
   };
 
@@ -482,6 +529,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                           onChange={(e) =>
                             setProfileSettings({ ...profileSettings, fullName: e.target.value })
                           }
+                          disabled={isLoadingProfile}
                           placeholder="John Doe"
                         />
                       </div>
@@ -492,9 +540,8 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                           id="email"
                           type="email"
                           value={profileSettings.email}
-                          onChange={(e) =>
-                            setProfileSettings({ ...profileSettings, email: e.target.value })
-                          }
+                          disabled
+                          className="bg-zinc-50 text-zinc-500 cursor-not-allowed"
                           placeholder="john@example.com"
                         />
                       </div>
@@ -504,9 +551,9 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                   </div>
 
                   <div className="flex justify-end pt-4 border-t">
-                    <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700" disabled={isLoadingProfile}>
                       <Save className="size-4 mr-2" />
-                      Save Changes
+                      {isLoadingProfile ? 'Loading...' : 'Save Changes'}
                     </Button>
                   </div>
                 </div>
