@@ -5,6 +5,8 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { sendOtp } from '@/app/lib/api';
+import { useRouter } from 'next/navigation';
+
 
 interface SignInPageProps {
   onSignUp: () => void;
@@ -14,7 +16,9 @@ interface SignInPageProps {
 
 export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProps) {
   const { switchPersona } = useWorkspace();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
@@ -63,6 +67,12 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
     }
   };
 
+  const handleContactSupport = (e: React.MouseEvent) => {
+    e.preventDefault();
+    switchPersona('guest@nconnect.app');
+    router.push('/helpdesk');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md">
@@ -100,16 +110,15 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
               </Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 placeholder="you@example.com"
-                autoFocus
-                autoComplete="email"
-                className="mt-2 h-12"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setError('');
                 }}
+                disabled={isLoading}
+                className="mt-2"
               />
               {error && (
                 <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -150,12 +159,13 @@ export function SignInPage({ onSignUp, onSignInSuccess, onBack }: SignInPageProp
           {/* Contact Support */}
           <p className="text-center text-sm text-gray-600 mt-3">
             Need help?{' '}
-            <a
-              href="/contact"
-              className="text-blue-600 hover:text-blue-700 font-semibold"
+            <button
+              type="button"
+              onClick={handleContactSupport}
+              className="text-blue-600 hover:text-blue-700 font-semibold focus:outline-none"
             >
               Contact Support
-            </a>
+            </button>
           </p>
         </div>
 

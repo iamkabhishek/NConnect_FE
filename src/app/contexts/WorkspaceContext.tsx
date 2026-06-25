@@ -15,7 +15,7 @@ export interface UserPersona {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'workspace_admin' | 'workspace_member';
+  role: 'owner' | 'workspace_admin' | 'workspace_member' | 'guest';
   onboarded: boolean;
   avatar?: string;
   permissions: {
@@ -137,6 +137,26 @@ const availablePersonas: UserPersona[] = [
       reports: 'viewer',
       media: 'editor',
     }
+  },
+  {
+    id: 'USR-guest',
+    name: 'Guest User',
+    email: 'guest@nconnect.app',
+    role: 'guest',
+    onboarded: true,
+    avatar: 'GU',
+    permissions: {
+      contacts: 'viewer',
+      campaigns: 'viewer',
+      templates: 'viewer',
+      automation: 'viewer',
+      settings: 'none',
+      users: 'none',
+      workspaces: 'none',
+      senderEmails: 'viewer',
+      reports: 'viewer',
+      media: 'viewer',
+    }
   }
 ];
 
@@ -177,8 +197,12 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     if (user) {
       localStorage.setItem('nconnect_current_user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('nconnect_current_user');
+      removeItem();
     }
+  };
+
+  const removeItem = () => {
+    localStorage.removeItem('nconnect_current_user');
   };
 
   const addWorkspace = (workspace: Workspace) => {

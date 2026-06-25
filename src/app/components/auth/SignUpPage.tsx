@@ -4,6 +4,9 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { sendOtp } from '@/app/lib/api';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { useRouter } from 'next/navigation';
+
 
 interface SignUpPageProps {
   onSignIn: () => void;
@@ -12,6 +15,9 @@ interface SignUpPageProps {
 }
 
 export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProps) {
+  const { switchPersona } = useWorkspace();
+  const router = useRouter();
+
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -143,12 +149,17 @@ export function SignUpPage({ onSignIn, onSignUpSuccess, onBack }: SignUpPageProp
           {/* Contact Support */}
           <p className="text-center text-sm text-gray-600 mt-3">
             Need help?{' '}
-            <a
-              href="/contact"
-              className="text-blue-600 hover:text-blue-700 font-semibold"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                switchPersona('guest@nconnect.app');
+                router.push('/helpdesk');
+              }}
+              className="text-blue-600 hover:text-blue-700 font-semibold focus:outline-none"
             >
               Contact Support
-            </a>
+            </button>
           </p>
         </div>
 

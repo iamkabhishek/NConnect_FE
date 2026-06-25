@@ -2,18 +2,23 @@
 
 import { useRouter } from 'next/navigation';
 import { Dashboard } from '@/app/components/dashboard/Dashboard';
+import { GuestDashboard } from '@/app/components/dashboard/GuestDashboard';
+import { useWorkspace } from '@/app/contexts/WorkspaceContext';
+import { resolveRoute } from '@/app/components/ui/utils';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { currentUser } = useWorkspace();
 
   const handleNavigate = (page: string) => {
-    if (page === 'campaigns') router.push('/dashboard/campaigns');
-    else if (page === 'templates') router.push('/dashboard/templates');
-    else if (page === 'contacts') router.push('/dashboard/contacts');
-    else if (page === 'automation') router.push('/dashboard/automation');
-    else if (page === 'settings') router.push('/dashboard/settings');
-    else if (page === 'reports') router.push('/dashboard/reports');
+    router.push(resolveRoute(page));
   };
+
+  if (currentUser?.role === 'guest') {
+    return (
+      <GuestDashboard onNavigate={handleNavigate} />
+    );
+  }
 
   return (
     <Dashboard onNavigate={handleNavigate} />

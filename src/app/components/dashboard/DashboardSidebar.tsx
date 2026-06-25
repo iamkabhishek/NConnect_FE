@@ -14,6 +14,7 @@ import {
   Zap,
   Book,
   Lock,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
@@ -25,7 +26,7 @@ interface NavItem {
   badge?: number;
   active?: boolean;
   onClick?: () => void;
-  permissionKey?: 'dashboard' | 'campaigns' | 'contacts' | 'templates' | 'media' | 'automation' | 'senderEmails' | 'reports' | 'users' | 'workspaces' | 'settings' | 'documentation';
+  permissionKey?: 'dashboard' | 'campaigns' | 'contacts' | 'templates' | 'media' | 'automation' | 'senderEmails' | 'reports' | 'users' | 'workspaces' | 'settings' | 'documentation' | 'helpdesk';
 }
 
 interface DashboardSidebarProps {
@@ -48,7 +49,7 @@ export function DashboardSidebar({
 
   // Helper to check module permission
   const getPermission = (key?: string) => {
-    if (!key || key === 'dashboard' || key === 'documentation') return 'admin';
+    if (!key || key === 'dashboard' || key === 'documentation' || key === 'helpdesk') return 'admin';
     return currentUser.permissions[key as keyof typeof currentUser.permissions] || 'none';
   };
 
@@ -140,6 +141,13 @@ export function DashboardSidebar({
       active: currentPage === 'documentation',
       onClick: () => onNavigate?.('documentation'),
       permissionKey: 'documentation',
+    },
+    {
+      icon: <HelpCircle className="size-5" />,
+      label: 'Help Desk',
+      active: currentPage === 'helpdesk',
+      onClick: () => onNavigate?.('helpdesk'),
+      permissionKey: 'helpdesk',
     },
     {
       icon: <Settings className="size-5" />,

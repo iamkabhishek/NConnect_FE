@@ -192,7 +192,7 @@ export default function OpsCockpitPage() {
 // Premium animated Shimmer Dashboard Skeleton Loader (strictly timed at 450ms)
 function SkeletonLoader() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-6 animate-pulse select-none">
       {/* Title block skeleton */}
       <div className="space-y-2">
         <div className="h-6 w-72 bg-zinc-200/80 rounded-lg"></div>
@@ -200,76 +200,56 @@ function SkeletonLoader() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left Card skeleton: 5 columns */}
-        <div className="xl:col-span-5 space-y-6">
-          <div className="bg-white/80 border border-zinc-200/40 rounded-2xl p-6 h-[460px] flex flex-col justify-between">
-            <div className="space-y-5">
-              {/* Header group */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-200/80"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 w-40 bg-zinc-200/80 rounded"></div>
-                  <div className="h-2.5 w-24 bg-zinc-200/50 rounded"></div>
-                </div>
-              </div>
-              
-              {/* Fake form input fields */}
-              <div className="space-y-4 pt-4">
-                <div className="space-y-1.5">
-                  <div className="h-2.5 w-20 bg-zinc-200/60 rounded"></div>
-                  <div className="h-9 w-full bg-zinc-100/60 rounded-xl border border-zinc-200/30"></div>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="h-2.5 w-24 bg-zinc-200/60 rounded flex-shrink-0"></div>
-                  <div className="h-9 w-full bg-zinc-100/60 rounded-xl border border-zinc-200/30"></div>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="h-2.5 w-28 bg-zinc-200/60 rounded"></div>
-                  <div className="h-24 w-full bg-zinc-100/60 rounded-xl border border-zinc-200/30"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action button skeleton */}
-            <div className="h-10 w-full bg-zinc-200/80 rounded-xl"></div>
-          </div>
-        </div>
-
-        {/* Right Card skeleton: 7 columns */}
-        <div className="xl:col-span-7 space-y-6">
-          <div className="bg-white/80 border border-zinc-200/40 rounded-2xl p-6 h-[460px] flex flex-col justify-between">
+        {/* Left Card skeleton: 3 columns */}
+        <div className="xl:col-span-3 space-y-6">
+          <div className="bg-white border border-zinc-200/40 rounded-2xl p-6 h-[480px] flex flex-col justify-between shadow-sm">
             <div className="space-y-4">
-              {/* Table / List Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-zinc-200/80"></div>
-                  <div className="space-y-1.5">
-                    <div className="h-3.5 w-32 bg-zinc-200/80 rounded"></div>
-                    <div className="h-2 w-48 bg-zinc-200/50 rounded"></div>
-                  </div>
-                </div>
-                <div className="h-6 w-20 bg-zinc-100 rounded-full"></div>
-              </div>
-
-              {/* Fake List rows */}
-              <div className="space-y-3 pt-6">
+              <div className="h-9 w-full bg-zinc-200/50 rounded-xl"></div>
+              <div className="h-6 w-full bg-zinc-200/40 rounded-lg"></div>
+              <div className="space-y-3 pt-4">
                 {[1, 2, 3].map((n) => (
-                  <div key={n} className="p-3.5 border border-zinc-100 rounded-xl bg-zinc-50/40 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-200/80"></div>
-                      <div className="space-y-1.5">
-                        <div className="h-3 w-28 bg-zinc-200/80 rounded"></div>
-                        <div className="h-2 w-20 bg-zinc-200/50 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="h-5 w-16 bg-zinc-200/80 rounded-lg"></div>
-                  </div>
+                  <div key={n} className="h-14 w-full bg-zinc-100/50 rounded-xl border border-zinc-100/30"></div>
                 ))}
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Bottom help bar skeleton */}
-            <div className="h-14 w-full bg-zinc-100/60 rounded-xl border border-zinc-200/20"></div>
+        {/* Middle Card skeleton: 6 columns */}
+        <div className="xl:col-span-6 space-y-6">
+          <div className="bg-white border border-zinc-200/40 rounded-2xl p-6 h-[480px] flex flex-col justify-between shadow-sm">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                <div className="h-4 w-40 bg-zinc-200/60 rounded"></div>
+                <div className="h-6 w-20 bg-zinc-200/40 rounded-full"></div>
+              </div>
+              <div className="space-y-3 pt-6">
+                <div className="h-12 w-2/3 bg-zinc-100/40 rounded-xl"></div>
+                <div className="h-16 w-1/2 bg-zinc-100/40 rounded-xl ml-auto"></div>
+                <div className="h-10 w-3/4 bg-zinc-100/40 rounded-xl"></div>
+              </div>
+            </div>
+            <div className="h-12 w-full bg-zinc-100/50 rounded-xl"></div>
+          </div>
+        </div>
+
+        {/* Right Card skeleton: 3 columns */}
+        <div className="xl:col-span-3 space-y-6">
+          <div className="bg-white border border-zinc-200/40 rounded-2xl p-6 h-[480px] flex flex-col justify-between shadow-sm">
+            <div className="space-y-4">
+              <div className="h-4 w-32 bg-zinc-200/60 rounded border-b border-zinc-100 pb-3"></div>
+              <div className="h-16 w-full bg-zinc-100/40 rounded-xl border border-zinc-100/20"></div>
+              <div className="space-y-2">
+                <div className="h-1.5 w-full bg-zinc-150/40 rounded-full"></div>
+                <div className="h-2 w-12 bg-zinc-150/40 rounded"></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="h-8 bg-zinc-100/40 rounded-lg"></div>
+                ))}
+              </div>
+            </div>
+            <div className="h-9 w-full bg-zinc-200/50 rounded-xl"></div>
           </div>
         </div>
       </div>
