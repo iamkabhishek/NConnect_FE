@@ -27,7 +27,9 @@ import {
   RefreshCw,
   Inbox as InboxIcon,
   FileCode,
-  Paperclip
+  Paperclip,
+  Download,
+  Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -61,7 +63,7 @@ interface TicketReply {
 
 export default function ModuleHelpDesk() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'closed'>('all');
   
   // Real DB backed state arrays
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -77,6 +79,7 @@ export default function ModuleHelpDesk() {
   const [replyMessage, setReplyMessage] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [replyFiles, setReplyFiles] = useState<{ name: string; size: number; type: string; base64: string }[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const replyFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Helper to append Authorization headers (with Cognito ID Token or fallback mock platform_admin JWT for local dev)
@@ -87,7 +90,26 @@ export default function ModuleHelpDesk() {
     }
     
     const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+    let isPlatformAdminToken = false;
+    
     if (storedToken) {
+      try {
+        const payloadBase64 = storedToken.split('.')[1];
+        if (payloadBase64) {
+          // Decode URL-safe base64 cleanly
+          let normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+          while (normalized.length % 4) normalized += '=';
+          const payload = JSON.parse(atob(normalized));
+          if (payload && payload['custom:role'] === 'platform_admin') {
+            isPlatformAdminToken = true;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse stored token:', e);
+      }
+    }
+
+    if (storedToken && isPlatformAdminToken) {
       headers['Authorization'] = `Bearer ${storedToken}`;
     } else {
       // In local dev, generate a mock platform_admin token so Hono authInjection can decode it base64-wise
@@ -173,6 +195,9 @@ export default function ModuleHelpDesk() {
         headers: getAuthHeaders(null)
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Server responded with status ${res.status}`);
+      }
       if (data.success && data.tickets) {
         setTickets(data.tickets);
         // Default select first ticket if none selected or if previously selected is missing
@@ -180,9 +205,11 @@ export default function ModuleHelpDesk() {
           setSelectedTicketId(data.tickets[0].id);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load tickets:', err);
-      toast.error('Failed to fetch support tickets from operations API.');
+      if (!quiet) {
+        toast.error(`Failed to fetch support tickets: ${err.message}`);
+      }
     } finally {
       if (!quiet) setIsLoading(false);
     }
@@ -208,12 +235,15 @@ export default function ModuleHelpDesk() {
         headers: getAuthHeaders(null)
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Server responded with status ${res.status}`);
+      }
       if (data.success && data.messages) {
         setReplies(data.messages);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load replies:', err);
-      if (!quiet) toast.error('Failed to retrieve discussion messages.');
+      if (!quiet) toast.error(`Failed to retrieve discussion messages: ${err.message}`);
     } finally {
       if (!quiet) setIsRepliesLoading(false);
     }
@@ -246,131 +276,205 @@ export default function ModuleHelpDesk() {
   const getTriageContext = (ticket: SupportTicket | undefined) => {
     if (!ticket) {
       return {
-        type: 'guest',
+        type: 'guest' as const,
         name: 'No Active Ticket',
-        domain: 'N/A',
+        slug: 'n-a',
         email: 'N/A',
-        plan: 'N/A',
+        licenseLevel: 'N/A',
+        billingTerms: 'N/A',
+        paymentState: 'N/A',
+        emailAddress: 'N/A',
+        slaStatus: 'normal' as const,
+        slaTarget: 'N/A',
+        slaElapsed: 'N/A',
+        slaProgress: 0,
         apiUsage: '0 / 0 requests',
         apiPercentage: 0,
         smtpStatus: 'UNCONFIGURED',
         activeUsers: 0,
-        billingStatus: 'UNPAID',
-        riskScore: 'Low',
         ipAddress: '127.0.0.1',
         region: 'Unknown',
-        lastSync: 'N/A',
-        warning: null
+        warning: null,
+        blockReason: null,
+        leadScore: null
       };
     }
 
     const email = ticket.email.toLowerCase();
-    
-    if (email.includes('peter') || ticket.name.toLowerCase().includes('peter')) {
+    const nameLower = ticket.name.toLowerCase();
+    const isGuestInTicket = ticket.tenantId === null;
+
+    // 1. Acme Creative Corp
+    if (email.includes('sarah') || email.includes('acme') || nameLower.includes('sarah') || nameLower.includes('acme')) {
       return {
-        type: 'tenant',
-        name: 'Horizon Agency Hub',
-        domain: 'horizon.sh',
-        email: 'peter@horizon.sh',
-        plan: 'Professional Plan ($49/mo)',
-        apiUsage: '42,500 / 50,000 requests',
-        apiPercentage: 85,
-        smtpStatus: 'VERIFIED (AWS SES AP-SOUTH-1)',
-        activeUsers: 8,
-        billingStatus: 'PAID (Disputed)',
-        riskScore: 'Low Risk',
-        ipAddress: '103.45.12.189',
-        region: 'Mumbai, India',
-        lastSync: '5 mins ago',
-        warning: 'Stripe webhook caught duplicate tokens on credit authorization renewal. High priority refund needed.'
+        type: isGuestInTicket ? 'registered_guest' as const : 'tenant' as const,
+        name: 'Acme Creative Corp',
+        slug: 'acme-creative',
+        email: ticket.email,
+        licenseLevel: 'Enterprise Package',
+        billingTerms: 'Yearly Cycle',
+        paymentState: 'PAID & CURRENT',
+        emailAddress: 'billing@acme.co',
+        slaStatus: 'critical' as const,
+        slaTarget: '15 min Goal',
+        slaElapsed: '10 mins 12s',
+        slaProgress: 68,
+        apiUsage: '92,400 / 100,000 requests',
+        apiPercentage: 92.4,
+        smtpStatus: 'VERIFIED (AWS SES US-EAST-1)',
+        activeUsers: 12,
+        ipAddress: '198.162.1.45',
+        region: 'Dublin, Ireland',
+        warning: isGuestInTicket 
+          ? '⚠️ REGISTERED MATCH (GUEST SUBMISSION): User submitted as guest, but email matches an active Enterprise Tenant. Verify identity before initiating login resets.'
+          : 'Priority webhook latencies detected on Stripe gateway API callbacks. Watch for duplicates.',
+        blockReason: isGuestInTicket ? 'Cognito SSO verification link expired.' : null,
+        leadScore: isGuestInTicket ? 'HIGH RETENTION RISK' : null
       };
     }
-    
-    if (email.includes('tony') || ticket.name.toLowerCase().includes('tony')) {
+
+    // 2. Stark Industries (Tony)
+    if (email.includes('tony') || email.includes('stark') || nameLower.includes('tony') || nameLower.includes('stark')) {
       return {
-        type: 'tenant',
+        type: isGuestInTicket ? 'registered_guest' as const : 'tenant' as const,
         name: 'Stark Industries Core',
-        domain: 'stark.io',
-        email: 'tony@stark.io',
-        plan: 'Enterprise Custom ($2,499/mo)',
+        slug: 'stark-industries',
+        email: ticket.email,
+        licenseLevel: 'Enterprise Custom',
+        billingTerms: 'Yearly Cycle',
+        paymentState: 'PAID & CURRENT',
+        emailAddress: 'billing@stark.io',
+        slaStatus: 'normal' as const,
+        slaTarget: '30 min Goal',
+        slaElapsed: '14 mins 45s',
+        slaProgress: 49,
         apiUsage: '450,000 / 1,000,000 requests',
         apiPercentage: 45,
         smtpStatus: 'DEGRADED (Custom AWS Relay)',
         activeUsers: 142,
-        billingStatus: 'PAID (Auto PO)',
-        riskScore: 'Low Risk',
         ipAddress: '54.210.82.11',
         region: 'Northern Virginia, USA',
-        lastSync: '1 min ago',
-        warning: 'Handshake latencies on AWS AP-SOUTH-1 region. Dynamic fallback rules generated for Singapore (ap-southeast-1).'
+        warning: isGuestInTicket
+          ? '⚠️ REGISTERED MATCH (GUEST SUBMISSION): Stark industries operator cannot log in. High importance.'
+          : 'Handshake latencies on AWS AP-SOUTH-1 region. Dynamic fallback rules generated for Singapore (ap-southeast-1).',
+        blockReason: isGuestInTicket ? 'Cognito device fingerprint mismatch flagged.' : null,
+        leadScore: isGuestInTicket ? 'CRITICAL ENTERPRISE RISK' : null
       };
     }
 
-    if (email.includes('lucius') || ticket.name.toLowerCase().includes('lucius')) {
+    // 3. Horizon Agency Hub (Peter)
+    if (email.includes('peter') || email.includes('horizon') || nameLower.includes('peter') || nameLower.includes('horizon')) {
       return {
-        type: 'tenant',
+        type: isGuestInTicket ? 'registered_guest' as const : 'tenant' as const,
+        name: 'Horizon Agency Hub',
+        slug: 'horizon-agency',
+        email: ticket.email,
+        licenseLevel: 'Professional Package',
+        billingTerms: 'Monthly Cycle',
+        paymentState: 'PAID & CURRENT',
+        emailAddress: 'billing@horizon.sh',
+        slaStatus: 'warn' as const,
+        slaTarget: '15 min Goal',
+        slaElapsed: '12 mins 10s',
+        slaProgress: 81,
+        apiUsage: '42,500 / 50,000 requests',
+        apiPercentage: 85,
+        smtpStatus: 'VERIFIED (AWS SES AP-SOUTH-1)',
+        activeUsers: 8,
+        ipAddress: '103.45.12.189',
+        region: 'Mumbai, India',
+        warning: isGuestInTicket
+          ? '⚠️ REGISTERED MATCH (GUEST SUBMISSION): Registered owner Peter cannot login. Please verify via backup SMS MFA.'
+          : 'Stripe webhook caught duplicate tokens on credit renewal. High priority refund needed.',
+        blockReason: isGuestInTicket ? 'Cognito MFA block triggered.' : null,
+        leadScore: isGuestInTicket ? 'HIGH VALUE CUSTOMER' : null
+      };
+    }
+
+    // 4. Wayne Enterprises (Lucius)
+    if (email.includes('lucius') || email.includes('wayne') || nameLower.includes('lucius') || nameLower.includes('wayne')) {
+      return {
+        type: isGuestInTicket ? 'registered_guest' as const : 'tenant' as const,
         name: 'Wayne Enterprises Global',
-        domain: 'wayne.co',
-        email: 'lucius@wayne.co',
-        plan: 'Professional Plan ($49/mo)',
+        slug: 'wayne-enterprises',
+        email: ticket.email,
+        licenseLevel: 'Professional Package',
+        billingTerms: 'Monthly Cycle',
+        paymentState: 'PAID & CURRENT',
+        emailAddress: 'billing@wayne.co',
+        slaStatus: 'normal' as const,
+        slaTarget: '60 min Goal',
+        slaElapsed: '5 mins 20s',
+        slaProgress: 8,
         apiUsage: '12,400 / 50,000 requests',
         apiPercentage: 24.8,
         smtpStatus: 'VERIFIED (AWS SES US-EAST-1)',
         activeUsers: 4,
-        billingStatus: 'PAID',
-        riskScore: 'Low Risk',
         ipAddress: '12.89.41.22',
         region: 'Gotham City, USA',
-        lastSync: '1 hr ago',
-        warning: null
+        warning: isGuestInTicket ? '⚠️ REGISTERED MATCH (GUEST SUBMISSION): Wayne Enterprises staff submitted as guest.' : null,
+        blockReason: null,
+        leadScore: null
       };
     }
 
-    if (email.includes('lex') || ticket.name.toLowerCase().includes('lex') || ticket.tenantId === null) {
+    // 5. General Tenant (ticket with tenantId !== null)
+    if (!isGuestInTicket) {
+      const domain = ticket.email.split('@')[1] || 'tenant-domain.com';
+      const companyName = ticket.name.includes("'") ? ticket.name.split("'")[0] : ticket.name;
+      const slugName = companyName.toLowerCase().replace(/\s+/g, '-');
       return {
-        type: 'guest',
-        name: ticket.name,
-        domain: (ticket.email ? ticket.email.split('@')[1] : 'lexcorp.com') + ' (Pre-signup)',
+        type: 'tenant' as const,
+        name: `${companyName} Corp`,
+        slug: slugName,
         email: ticket.email,
-        plan: 'Unauthenticated Guest Prospect',
-        apiUsage: '0 / 0 requests (No Workspace)',
-        apiPercentage: 0,
-        smtpStatus: 'UNVERIFIED (Handshake Expired)',
-        activeUsers: 0,
-        billingStatus: 'UNPAID (Pending Trial)',
-        riskScore: 'CRITICAL FLAGS TRIGGERED',
-        ipAddress: '198.51.100.42',
-        region: 'Metropolis, USA',
-        lastSync: 'Just now',
-        blockReason: 'Cognito link verification expired. Region mismatch flagged (Metropolis datacenter IP mapped to blocked region rules).',
-        leadScore: 'HOT PROSPECT (High Intent)',
-        warning: 'IP matches metropolitan VPS node which triggered automatic spam block rules. Safe to manually override/bypass.'
+        licenseLevel: 'Professional Package',
+        billingTerms: 'Monthly Cycle',
+        paymentState: 'PAID & CURRENT',
+        emailAddress: ticket.email,
+        slaStatus: 'normal' as const,
+        slaTarget: '30 min Goal',
+        slaElapsed: '5 mins 10s',
+        slaProgress: 17,
+        apiUsage: '15,600 / 50,000 requests',
+        apiPercentage: 31.2,
+        smtpStatus: 'VERIFIED (AWS SES)',
+        activeUsers: 3,
+        ipAddress: '103.22.45.18',
+        region: 'Delhi, India',
+        warning: ticket.priority === 'critical' || ticket.priority === 'high' 
+          ? 'Escalated priority ticket. Please review client workspace logs.' 
+          : null,
+        blockReason: null,
+        leadScore: null
       };
     }
 
-    // Default dynamic context for general multi-tenant or guest tickets
-    const domain = ticket.email.split('@')[1] || 'domain.com';
-    const isGuest = ticket.tenantId === null;
+    // 6. Default Guest/Unregistered user (no matching registration, ticket.tenantId is null)
+    const domain = ticket.email.split('@')[1] || 'unknown-lead.com';
+    const guestSlug = ticket.name.toLowerCase().replace(/\s+/g, '-');
     return {
-      type: isGuest ? 'guest' : 'tenant',
-      name: isGuest ? `${ticket.name} (Guest)` : `${ticket.name}'s Workspace`,
-      domain: domain,
+      type: 'guest' as const,
+      name: ticket.name,
+      slug: `${guestSlug}-guest`,
       email: ticket.email,
-      plan: isGuest ? 'Guest Lead Prospect' : 'Professional Plan ($49/mo)',
-      apiUsage: isGuest ? '0 / 0 requests' : '15,600 / 50,000 requests',
-      apiPercentage: isGuest ? 0 : 31.2,
-      smtpStatus: isGuest ? 'UNVERIFIED' : 'VERIFIED (AWS SES)',
-      activeUsers: isGuest ? 0 : 3,
-      billingStatus: isGuest ? 'PENDING' : 'PAID',
-      riskScore: 'Normal',
-      ipAddress: '103.22.45.18',
-      region: 'Delhi, India',
-      lastSync: 'Recently updated',
-      blockReason: isGuest ? 'Unauthenticated guest ticket session' : undefined,
-      leadScore: isGuest ? 'WARM LEAD' : undefined,
-      warning: ticket.priority === 'critical' || ticket.priority === 'high' 
-        ? 'Escalated ticket priority. Needs immediate operator attention.' 
-        : null
+      licenseLevel: 'No Active License (Guest)',
+      billingTerms: 'None (Unregistered)',
+      paymentState: 'UNPAID (Lead)',
+      emailAddress: ticket.email,
+      slaStatus: 'normal' as const,
+      slaTarget: '120 min Goal',
+      slaElapsed: '18 mins 30s',
+      slaProgress: 15,
+      apiUsage: '0 / 0 requests (No Workspace)',
+      apiPercentage: 0,
+      smtpStatus: 'UNCONFIGURED (Pre-signup)',
+      activeUsers: 0,
+      ipAddress: '198.51.100.42',
+      region: 'Unknown Server Region',
+      warning: 'This ticket was submitted by an unregistered guest from the signup page. Show limited workspace insights.',
+      blockReason: 'Cognito link verification expired or missing user registration record.',
+      leadScore: 'WARM PROSPECT (High Intent)'
     };
   };
 
@@ -579,7 +683,7 @@ export default function ModuleHelpDesk() {
 
               {/* Sub Filters */}
               <div className="flex gap-0.5 bg-zinc-100 p-0.5 rounded-xl border border-zinc-200/40">
-                {(['all', 'open', 'in_progress', 'resolved'] as const).map((tab) => (
+                {(['all', 'open', 'in_progress', 'closed'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setStatusFilter(tab)}
@@ -589,7 +693,7 @@ export default function ModuleHelpDesk() {
                         : 'text-zinc-500 hover:text-zinc-800'
                     }`}
                   >
-                    {tab === 'in_progress' ? 'Active' : tab}
+                    {tab === 'in_progress' ? 'IN PROGRESS' : tab.toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -615,8 +719,15 @@ export default function ModuleHelpDesk() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-mono font-extrabold text-zinc-400 uppercase tracking-tight">
+                        <span className="text-[9px] font-mono font-extrabold text-zinc-400 uppercase tracking-tight flex items-center gap-1.5">
                           {t.ticketCode}
+                          <span className={`text-[7.5px] font-sans font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide border shadow-sm ${
+                            t.tenantId 
+                              ? 'bg-indigo-50 border-indigo-100 text-indigo-600' 
+                              : 'bg-zinc-50 border-zinc-200 text-zinc-500'
+                          }`}>
+                            {t.tenantId ? 'REGISTERED' : 'GUEST'}
+                          </span>
                         </span>
                         <span className={`text-[8px] font-mono font-black px-1.5 py-0.5 rounded border uppercase tracking-wider ${pColor}`}>
                           {t.priority}
@@ -632,10 +743,10 @@ export default function ModuleHelpDesk() {
                         <span className={`px-2 py-0.5 rounded-md font-mono font-extrabold text-[8.5px] uppercase border ${
                           t.status === 'open' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                           t.status === 'in_progress' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                          t.status === 'resolved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          t.status === 'closed' ? 'bg-zinc-50 text-zinc-500 border-zinc-150' :
                           'bg-zinc-50 text-zinc-500 border-zinc-200'
                         }`}>
-                          {t.status === 'in_progress' ? 'active' : t.status}
+                          {t.status === 'in_progress' ? 'in progress' : t.status}
                         </span>
                       </div>
                     </div>
@@ -669,20 +780,6 @@ export default function ModuleHelpDesk() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Assign Button */}
-                    {!selectedTicket.assignedTo ? (
-                      <button
-                        onClick={handleAssignToMe}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-xl shadow-md shadow-indigo-600/10 border border-indigo-500/15 transition-all uppercase tracking-wider"
-                      >
-                        Assign To Me
-                      </button>
-                    ) : (
-                      <span className="text-[9px] font-mono font-extrabold uppercase px-2 py-1 rounded-lg bg-zinc-50 text-zinc-500 border border-zinc-200/60">
-                        Agent: {selectedTicket.assignedTo}
-                      </span>
-                    )}
-
                     {/* Status Switcher */}
                     <select
                       value={selectedTicket.status}
@@ -690,8 +787,7 @@ export default function ModuleHelpDesk() {
                       className="bg-zinc-50 border border-zinc-200 text-[10px] font-extrabold uppercase rounded-xl px-2 py-1.5 cursor-pointer text-zinc-800 focus:outline-none"
                     >
                       <option value="open">Open</option>
-                      <option value="in_progress">Active</option>
-                      <option value="resolved">Resolved</option>
+                      <option value="in_progress">In Progress</option>
                       <option value="closed">Closed</option>
                     </select>
                   </div>
@@ -758,8 +854,14 @@ export default function ModuleHelpDesk() {
                                     <a
                                       key={fileIdx}
                                       href={file.base64}
-                                      download={file.name}
-                                      className="flex items-center gap-2.5 p-2 bg-white hover:bg-zinc-50 border border-zinc-200/60 rounded-xl transition-all select-none"
+                                      download={!isImage ? file.name : undefined}
+                                      onClick={(e) => {
+                                        if (isImage) {
+                                          e.preventDefault();
+                                          setPreviewImage({ url: file.base64, name: file.name });
+                                        }
+                                      }}
+                                      className="flex items-center gap-2.5 p-2 bg-white hover:bg-zinc-50 border border-zinc-200/60 rounded-xl transition-all select-none cursor-pointer"
                                     >
                                       <div className="bg-zinc-50 p-1.5 rounded-lg border border-zinc-200/50 shadow-sm shrink-0">
                                         {isImage ? (
@@ -837,7 +939,7 @@ export default function ModuleHelpDesk() {
                       type="button" 
                       onClick={() => replyFileInputRef.current?.click()}
                       className="border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 p-3.5 rounded-xl flex items-center justify-center shadow-sm transition-all"
-                      title="Attach logs or files"
+                      title="Attachments"
                     >
                       <Paperclip className="w-4 h-4 text-indigo-500" />
                     </button>
@@ -880,153 +982,193 @@ export default function ModuleHelpDesk() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Right column: Triage Context Locator (col-span-3) */}
-          <div className="xl:col-span-3">
-            <div className="bg-white border border-zinc-200/60 rounded-2xl p-5 shadow-md space-y-5 select-none">
-              <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-                <Sparkles className="w-4.5 h-4.5 text-indigo-600" />
-                <span className="text-xs font-extrabold text-zinc-900 font-mono uppercase tracking-wider">
+          </div>          {/* Right column: Triage Context Locator (col-span-3) */}
+          <div className="xl:col-span-3 space-y-4">
+            
+            {/* Main Client Card */}
+            <div className="bg-white border border-zinc-200/60 rounded-2xl p-4.5 shadow-md space-y-4 select-none">
+              
+              {/* Header Title matching the exact style in screenshot */}
+              <div className="border-b border-zinc-100 pb-3.5 select-none">
+                <span className="text-[9px] font-mono text-zinc-400 font-extrabold uppercase tracking-widest block">
                   Triage Context Locator
                 </span>
+                <h4 className="text-[11.5px] font-extrabold text-zinc-950 font-mono tracking-tight uppercase mt-1">
+                  {context.type === 'guest' ? 'Guest Workspace Context' : 'Tenant Workspace Context'}
+                </h4>
               </div>
 
-              {/* Profile Header Block */}
-              <div className="p-3.5 rounded-xl border bg-zinc-50 border-zinc-200/60 flex items-start gap-3">
-                {context.type === 'tenant' ? (
-                  <div className="p-2 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-600">
-                    <Building2 className="w-4.5 h-4.5" />
+              <div className="space-y-4">
+                {/* Avatar Profile Header Block matching Acme screenshot */}
+                <div className="flex items-center gap-3 bg-zinc-50/20 border border-zinc-100/50 p-3 rounded-2xl">
+                  <div className="h-11 w-11 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-indigo-600 font-mono text-[13px] shadow-sm shrink-0">
+                    {context.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
-                ) : (
-                  <div className="p-2 bg-amber-50 border border-amber-100 rounded-lg text-amber-600">
-                    <ShieldAlert className="w-4.5 h-4.5" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <span className={`text-[8.5px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block border mb-1.5 ${
-                    context.type === 'tenant' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-red-50 border-red-100 text-red-600'
-                  }`}>
-                    {context.type === 'tenant' ? 'TENANT WORKSPACE' : 'GUEST LEAD PROSPECT'}
-                  </span>
-                  <h4 className="text-xs font-black text-zinc-950 truncate leading-snug">{context.name}</h4>
-                  <p className="text-[10px] text-zinc-400 font-bold truncate mt-0.5">{context.domain}</p>
-                </div>
-              </div>
-
-              {/* Service & Operational Specs */}
-              <div className="space-y-3">
-                <span className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider font-mono">
-                  System Metrics & Subscription
-                </span>
-
-                {/* API progress limit (only for tenant) */}
-                {context.type === 'tenant' && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-extrabold text-zinc-600">
-                      <span>Monthly API Quota</span>
-                      <span>{context.apiPercentage}%</span>
-                    </div>
-                    <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden border border-zinc-200/40">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          context.apiPercentage > 80 ? 'bg-amber-500' : 'bg-indigo-600'
-                        }`} 
-                        style={{ width: `${context.apiPercentage}%` }}
-                      />
-                    </div>
-                    <p className="text-[9px] text-zinc-400 font-bold">{context.apiUsage}</p>
-                  </div>
-                )}
-
-                {/* Metadata grids */}
-                <div className="grid grid-cols-2 gap-2.5 pt-1 text-[10px]">
-                  <div className="bg-zinc-50/50 p-2 border border-zinc-100 rounded-xl">
-                    <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider block">Billing Tier</span>
-                    <span className="text-zinc-800 font-extrabold block mt-0.5 truncate">{context.plan}</span>
-                  </div>
-                  <div className="bg-zinc-50/50 p-2 border border-zinc-100 rounded-xl">
-                    <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider block">Active Admins</span>
-                    <span className="text-zinc-800 font-extrabold block mt-0.5">{context.activeUsers} Operators</span>
-                  </div>
-                  <div className="bg-zinc-50/50 p-2 border border-zinc-100 rounded-xl col-span-2">
-                    <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider block">AWS SES Outbound Gate</span>
-                    <span className="text-zinc-800 font-mono font-extrabold block mt-0.5 text-[9px] truncate">{context.smtpStatus}</span>
-                  </div>
-                  <div className="bg-zinc-50/50 p-2 border border-zinc-100 rounded-xl">
-                    <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider block">Source IP</span>
-                    <span className="text-zinc-800 font-mono font-extrabold block mt-0.5 truncate">{context.ipAddress}</span>
-                  </div>
-                  <div className="bg-zinc-50/50 p-2 border border-zinc-100 rounded-xl">
-                    <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider block">Server Region</span>
-                    <span className="text-zinc-800 font-extrabold block mt-0.5 truncate">{context.region}</span>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs sm:text-[13.5px] font-black text-zinc-950 truncate leading-snug">
+                      {context.name}
+                    </h4>
+                    <p className="text-[10px] text-zinc-400 font-mono font-semibold lowercase tracking-tight mt-0.5">
+                      {context.type === 'guest' ? 'unregistered guest lead' : `slug: ${context.slug}`}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Special block for Guest Block reasoning */}
-              {context.type === 'guest' && context.blockReason && (
-                <div className="p-3 bg-red-50/50 border border-red-200/50 rounded-xl space-y-1.5">
-                  <div className="flex items-center gap-1 text-red-600">
-                    <Ban className="w-3.5 h-3.5 shrink-0" />
-                    <span className="text-[9px] font-black uppercase tracking-wider font-mono">Cognito Block Reason</span>
+                {/* System details list as shown in the screenshot */}
+                <div className="space-y-2">
+                  {/* LICENSE LEVEL */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                    <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                      <ShieldCheck className="w-4 h-4 text-zinc-400 shrink-0" />
+                      License Level
+                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-indigo-50/60 border border-indigo-100 text-indigo-600 px-2 py-0.5 rounded">
+                      {context.licenseLevel}
+                    </span>
                   </div>
-                  <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
-                    {context.blockReason}
-                  </p>
-                  {context.leadScore && (
-                    <div className="bg-white/80 p-2 border border-red-100 rounded-lg text-[9.5px]">
-                      <span className="text-[8px] text-zinc-400 font-extrabold uppercase tracking-wider block">Hot Lead Score</span>
-                      <span className="text-indigo-600 font-black flex items-center gap-1 mt-0.5">
-                        <Zap className="w-3 h-3 fill-indigo-600 text-indigo-600 animate-pulse" />
-                        {context.leadScore}
+
+                  {/* BILLING TERMS */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                    <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                      <FileCode className="w-4 h-4 text-zinc-400 shrink-0" />
+                      Billing Terms
+                    </div>
+                    <span className="text-zinc-800 font-extrabold text-[10.5px]">
+                      {context.billingTerms}
+                    </span>
+                  </div>
+
+                  {/* PAYMENT STATE */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                    <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                      <Clock className="w-4 h-4 text-zinc-400 shrink-0" />
+                      Payment State
+                    </div>
+                    {context.type === 'guest' || context.paymentState === 'N/A' ? (
+                      <span className="text-[9.5px] font-mono font-bold bg-zinc-50 text-zinc-500 border border-zinc-200 px-2 py-0.5 rounded uppercase tracking-wider">
+                        N/A
                       </span>
-                    </div>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <span className="text-[9.5px] font-mono font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+                        <Check className="w-2.5 h-2.5" />
+                        {context.paymentState}
+                      </span>
+                    )}
+                  </div>
 
-              {/* Live Warn Warning alerts */}
-              {context.warning && (
-                <div className="p-3 bg-amber-50/60 border border-amber-200/50 rounded-xl flex gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-[10px] leading-relaxed">
-                    <span className="font-extrabold text-amber-800 uppercase tracking-wider block mb-0.5">Operator Dispatch Notice</span>
-                    <span className="text-zinc-600 font-semibold">{context.warning}</span>
+                  {/* EMAIL ADDRESS */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                    <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                      <Mail className="w-4 h-4 text-zinc-400 shrink-0" />
+                      Email Address
+                    </div>
+                    <a 
+                      href={`mailto:${context.emailAddress}`} 
+                      className="text-indigo-600 hover:text-indigo-700 font-extrabold text-[10.5px] hover:underline truncate max-w-[140px]"
+                    >
+                      {context.emailAddress}
+                    </a>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
 
-              {/* Operations CTA Quick actions */}
-              <div className="pt-2 border-t border-zinc-100 space-y-2">
-                {context.type === 'guest' ? (
-                  <button
-                    type="button"
-                    onClick={handleBypassSecurity}
-                    className="w-full bg-[#030213] hover:bg-zinc-800 text-white font-extrabold text-[10px] py-2.5 rounded-xl shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all border border-zinc-950"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Manual Bypass & Invite
-                  </button>
+            {/* ACTIVE SLA COUNTDOWN CARD matching Acme screenshot */}
+            <div className="bg-white border border-zinc-200/60 rounded-2xl p-4.5 shadow-md space-y-4 select-none">
+              <div className="flex items-center justify-between">
+                <span className="text-[9.5px] font-black text-zinc-500 font-mono uppercase tracking-wider">
+                  Active SLA Countdown
+                </span>
+                
+                {/* SLA Status Pill */}
+                {context.slaStatus === 'critical' ? (
+                  <span className="text-[8px] font-mono font-black bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                    CRITICAL BREACH RISK
+                  </span>
+                ) : context.slaStatus === 'warn' ? (
+                  <span className="text-[8px] font-mono font-black bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded uppercase tracking-wider">
+                    WARNING HIGH ELAPSED
+                  </span>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Escalation flagged in team chat.')}
-                    className="w-full bg-[#030213] hover:bg-zinc-800 text-white font-extrabold text-[10px] py-2.5 rounded-xl shadow-md flex items-center justify-center gap-1.5 uppercase tracking-wider transition-all border border-zinc-950"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                    Escalate to Ops Slack
-                  </button>
+                  <span className="text-[8px] font-mono font-black bg-emerald-50 text-emerald-600 border-indigo-100 px-2 py-0.5 rounded uppercase tracking-wider">
+                    NORMAL RESPONSE BUFFER
+                  </span>
                 )}
-                <button
-                  type="button"
-                  onClick={handleRefreshState}
-                  className="w-full bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-800 font-extrabold text-[10px] py-2 rounded-xl flex items-center justify-center gap-1 border border-zinc-200 shadow-sm transition-all"
+              </div>
+
+              {/* SLA Target Goal & Current Elapsed */}
+              <div className="space-y-1.5 text-[10.5px]">
+                <div className="flex items-center justify-between text-zinc-500 font-bold">
+                  <span>Target Response Range:</span>
+                  <span className="text-zinc-800 font-extrabold">{context.slaTarget}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-500 font-bold">
+                  <span>Current Elapsed:</span>
+                  <span className={`font-mono font-extrabold ${context.slaStatus === 'critical' ? 'text-red-600' : 'text-zinc-800'}`}>
+                    {context.slaElapsed}
+                  </span>
+                </div>
+              </div>
+
+              {/* SLA Progress Bar matching the screenshot */}
+              <div className="space-y-1">
+                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden border border-zinc-200/40">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      context.slaStatus === 'critical' ? 'bg-gradient-to-r from-red-500 to-rose-600' :
+                      context.slaStatus === 'warn' ? 'bg-gradient-to-r from-amber-500 to-amber-600' :
+                      'bg-gradient-to-r from-indigo-500 to-indigo-600'
+                    }`} 
+                    style={{ width: `${context.slaProgress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Premium Image Preview Modal Overlay */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-md transition-all duration-300 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header / Info bar */}
+            <div className="absolute top-[-45px] left-0 right-0 flex items-center justify-between text-white px-1">
+              <span className="text-xs font-mono font-bold truncate max-w-[70%]">{previewImage.name}</span>
+              <div className="flex items-center gap-3">
+                <a 
+                  href={previewImage.url} 
+                  download={previewImage.name}
+                  className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/85 text-zinc-300 hover:text-white border border-zinc-700/40 shadow-sm transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider font-mono px-3"
+                  title="Save to Disk"
                 >
-                  <RefreshCw className="w-3 h-3 text-zinc-400 animate-spin" />
-                  Refresh State Session
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </a>
+                <button 
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/85 text-zinc-300 hover:text-white border border-zinc-700/40 shadow-sm transition-all"
+                  title="Close Preview"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Main Image */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl flex items-center justify-center p-1.5 max-h-[80vh]">
+              <img 
+                src={previewImage.url} 
+                alt={previewImage.name} 
+                className="max-w-full max-h-[75vh] object-contain rounded-xl select-none"
+              />
             </div>
           </div>
         </div>

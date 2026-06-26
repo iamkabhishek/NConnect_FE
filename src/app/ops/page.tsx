@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, ArrowLeft, Crown, Lock, ChevronRight } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import OpsSidebar from './components/OpsSidebar';
@@ -113,16 +113,6 @@ export default function OpsCockpitPage() {
 
           {/* Actions */}
           <div className="space-y-4">
-            <button
-              onClick={() => {
-                switchPersona('john@example.com');
-              }}
-              className="w-full h-12 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/15 active:scale-95 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Crown className="size-4" />
-              Switch to John Doe (Owner)
-              <ChevronRight className="size-4" />
-            </button>
 
             <button
               onClick={() => {

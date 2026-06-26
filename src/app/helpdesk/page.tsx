@@ -27,11 +27,13 @@ import {
   RefreshCw,
   SearchIcon,
   Lock,
+  Download,
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getMe } from '../lib/api';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface Message {
   id: string;
@@ -65,6 +67,8 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
   
   // Auth & API States
   const [token, setToken] = useState<string | null>(null);
+  const { currentUser } = useWorkspace();
+  const [isRegistered, setIsRegistered] = useState(embedMode);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string>('');
@@ -74,12 +78,9 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
   const [isCreating, setIsCreating] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
 
-  // Active Simulated Guest Profile
-  const [activeProfile, setActiveProfile] = useState<'Acme Creative Corp' | 'TechVibe Media' | 'PixelPerfect Agency'>('Acme Creative Corp');
-  
-  // Guest Profile automatic details
-  const [guestName, setGuestName] = useState('Sarah Connor');
-  const [guestEmail, setGuestEmail] = useState('sarah@acme.com');
+  // Guest Profile details
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
 
   // Forms States
   const [subject, setSubject] = useState('');
@@ -93,6 +94,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
   // Attachments States
   const [selectedFiles, setSelectedFiles] = useState<{ name: string; size: number; type: string; base64: string }[]>([]);
   const [replyFiles, setReplyFiles] = useState<{ name: string; size: number; type: string; base64: string }[]>([]);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const replyFileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -110,11 +112,6 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     }
     return { text: rawMessage, attachments: [] };
   };
-
-  // Session recovery states
-  const [lookupEmail, setLookupEmail] = useState('');
-  const [lookupCode, setLookupCode] = useState('');
-  const [isLookingUp, setIsLookingUp] = useState(false);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -171,35 +168,71 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     setMounted(true);
   }, []);
 
-  // Update guest form pre-fills on switcher profile toggles
-  useEffect(() => {
-    if (activeProfile === 'Acme Creative Corp') {
-      setGuestName('Sarah Connor');
-      setGuestEmail('sarah@acme.com');
-    } else if (activeProfile === 'TechVibe Media') {
-      setGuestName('Marcus Aurelius');
-      setGuestEmail('marcus@techvibe.media');
-    } else {
-      setGuestName('Admin Manager');
-      setGuestEmail('admin@pixelperfect.agency');
-    }
-  }, [activeProfile]);
+
 
   // Load Auth Session & Initial Tickets
   useEffect(() => {
     const checkAuthAndLoad = async () => {
       setIsLoading(true);
       const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
-      setToken(storedToken);
+      
+      let isPlatformAdmin = false;
+      let isRegisteredUser = false;
+
+      if (storedToken) {
+        try {
+          const payloadBase64 = storedToken.split('.')[1];
+          if (payloadBase64) {
+            let normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+            while (normalized.length % 4) normalized += '=';
+            const payload = JSON.parse(atob(normalized));
+            if (payload) {
+              if (payload['custom:role'] === 'platform_admin') {
+                isPlatformAdmin = true;
+              } else {
+                isRegisteredUser = true;
+              }
+              const tokenEmail = payload.email || '';
+              setGuestEmail(tokenEmail);
+              setGuestName(tokenEmail.split('@')[0] || 'Registered User');
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse token role in helpdesk:', e);
+        }
+      } else if (currentUser && currentUser.role !== 'guest') {
+        isRegisteredUser = true;
+        const safeEmail = currentUser.email && currentUser.email.includes('@')
+          ? currentUser.email
+          : `${(currentUser.name || 'user').toLowerCase().replace(/\s+/g, '')}@nconnect.app`;
+        setGuestEmail(safeEmail);
+        setGuestName(currentUser.name || 'Registered User');
+      }
+
+      let effectiveToken = null;
+      if (embedMode) {
+        setIsRegistered(isRegisteredUser);
+        effectiveToken = isPlatformAdmin ? null : storedToken;
+        setToken(effectiveToken);
+      } else {
+        setIsRegistered(false);
+        setToken(null);
+      }
       
       if (storedToken) {
         try {
           const profile = await getMe(storedToken);
           setUserProfile(profile);
-          
+        } catch (err: any) {
+          console.error('Failed to load profile in helpdesk:', err);
+        }
+      }
+
+      if (effectiveToken) {
+        try {
           // Fetch Authenticated Tickets
           const res = await fetch('/api/v1/helpdesk/tickets', {
-            headers: { 'Authorization': `Bearer ${storedToken}` }
+            headers: { 'Authorization': `Bearer ${effectiveToken}` }
           });
           const data = await res.json();
           if (data.success && data.tickets) {
@@ -209,21 +242,96 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
             }
           }
         } catch (err: any) {
-          console.error('Failed to load profile or authenticated tickets:', err);
+          console.error('Failed to load authenticated tickets:', err);
           setToken(null);
         }
       } else {
-        // Guest mode — load ticket cache from localStorage
-        const saved = localStorage.getItem('nconnect_guest_tickets');
-        if (saved) {
+        // Guest mode or Simulated persona — check if we have secure session restore query parameters in the URL
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const urlCode = params ? params.get('ticketCode') : null;
+        const urlEmail = params ? params.get('email') : null;
+
+        if (urlCode && urlEmail) {
           try {
-            const parsed = JSON.parse(saved);
-            setTickets(parsed);
-            if (parsed.length > 0) {
-              setSelectedTicketId(parsed[0].id);
+            const res = await fetch('/api/v1/helpdesk/tickets/guest/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: urlEmail, ticketCode: urlCode }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              const restoredTicket = data.ticket;
+              
+              // Load current localStorage guest tickets to merge and update cache
+              const saved = localStorage.getItem('nconnect_guest_tickets');
+              let existing = saved ? JSON.parse(saved) : [];
+              
+              // De-duplicate if the ticket already exists in the cache
+              existing = existing.filter((t: any) => t.id !== restoredTicket.id);
+              
+              const ticketSummary = {
+                id: restoredTicket.id,
+                ticketCode: restoredTicket.ticketCode,
+                tenantId: null,
+                email: restoredTicket.email,
+                name: restoredTicket.name,
+                workspaceId: restoredTicket.workspaceId,
+                subject: restoredTicket.subject,
+                category: restoredTicket.category,
+                priority: restoredTicket.priority,
+                status: restoredTicket.status,
+                createdAt: restoredTicket.createdAt,
+                updatedAt: restoredTicket.updatedAt
+              };
+              existing.unshift(ticketSummary);
+              localStorage.setItem('nconnect_guest_tickets', JSON.stringify(existing));
+              
+              setTickets(existing);
+              setSelectedTicketId(restoredTicket.id);
+              setActiveTicketMessages(restoredTicket.messages || []);
+              
+              toast.success(`Session recovered successfully! Selected Ticket ${restoredTicket.ticketCode}`);
+              
+              // Clean up URL parameters beautifully
+              const cleanUrl = window.location.pathname;
+              window.history.replaceState({}, '', cleanUrl);
+            } else {
+              throw new Error(data.error || 'Ticket not found.');
             }
-          } catch (e) {
-            console.error('Failed to parse guest tickets:', e);
+          } catch (err: any) {
+            console.error('Failed to auto-restore session from URL:', err);
+            toast.error(`Auto-restore failed: ${err.message || 'Check ticket details'}`);
+            
+            // Fallback: load cache from localStorage
+            const saved = localStorage.getItem('nconnect_guest_tickets');
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                setTickets(parsed);
+                if (parsed.length > 0) {
+                  setSelectedTicketId(parsed[0].id);
+                }
+              } catch (e) {
+                console.error('Failed to parse guest tickets:', e);
+              }
+            }
+          }
+        } else {
+          // No parameters in the URL — load normal guest cache from localStorage
+          const saved = localStorage.getItem('nconnect_guest_tickets');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              setTickets(parsed);
+              if (parsed.length > 0) {
+                setSelectedTicketId(parsed[0].id);
+              }
+            } catch (e) {
+              console.error('Failed to parse guest tickets:', e);
+            }
+          } else {
+            setTickets([]);
+            setSelectedTicketId('');
           }
         }
       }
@@ -231,7 +339,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     };
     
     checkAuthAndLoad();
-  }, []);
+  }, [embedMode, currentUser]);
 
   // Fetch Messages when selected ticket changes (with background auto-polling every 8 seconds)
   useEffect(() => {
@@ -336,7 +444,8 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         toast.success(`Support ticket ${newTicket.ticketCode} successfully dispatched to support operations queue!`);
       } else {
         // Guest mode creation
-        const workspaceId = `GUEST_${activeProfile.toUpperCase().replace(/\s+/g, '_')}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const guestSlug = guestName ? guestName.toUpperCase().replace(/\s+/g, '_').substring(0, 15) : 'ANONYMOUS';
+        const workspaceId = `GUEST_${guestSlug}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
         const res = await fetch('/api/v1/helpdesk/tickets', {
           method: 'POST',
           headers: {
@@ -399,6 +508,11 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     if (!messageContent && replyFiles.length === 0) return;
     if (!selectedTicketId) return;
 
+    if (activeTicket?.status === 'closed') {
+      toast.error('This ticket has been closed. You cannot send new messages.');
+      return;
+    }
+
     setIsReplying(true);
     try {
       let finalMessage = messageContent;
@@ -458,68 +572,6 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     }
   };
 
-  const handleLookupTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lookupEmail.trim() || !lookupCode.trim()) {
-      toast.error('Please enter both email and ticket code.');
-      return;
-    }
-    
-    setIsLookingUp(true);
-    try {
-      const res = await fetch('/api/v1/helpdesk/tickets/guest/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: lookupEmail, ticketCode: lookupCode }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Ticket not found.');
-      }
-      
-      const restoredTicket = data.ticket;
-      
-      setTickets(prev => {
-        if (prev.some(t => t.id === restoredTicket.id)) {
-          return prev.map(t => t.id === restoredTicket.id ? restoredTicket : t);
-        }
-        return [restoredTicket, ...prev];
-      });
-      setSelectedTicketId(restoredTicket.id);
-      setActiveTicketMessages(restoredTicket.messages || []);
-
-      // Cache guest tickets in localStorage
-      const saved = localStorage.getItem('nconnect_guest_tickets');
-      const existing = saved ? JSON.parse(saved) : [];
-      if (!existing.some((t: any) => t.id === restoredTicket.id)) {
-        const ticketSummary = {
-          id: restoredTicket.id,
-          ticketCode: restoredTicket.ticketCode,
-          tenantId: null,
-          email: restoredTicket.email,
-          name: restoredTicket.name,
-          workspaceId: restoredTicket.workspaceId,
-          subject: restoredTicket.subject,
-          category: restoredTicket.category,
-          priority: restoredTicket.priority,
-          status: restoredTicket.status,
-          createdAt: restoredTicket.createdAt,
-          updatedAt: restoredTicket.updatedAt
-        };
-        existing.unshift(ticketSummary);
-        localStorage.setItem('nconnect_guest_tickets', JSON.stringify(existing));
-      }
-      
-      toast.success(`Session recovered successfully! Selected Ticket ${restoredTicket.ticketCode}`);
-      setLookupCode('');
-      setLookupEmail('');
-    } catch (err: any) {
-      toast.error(err.message || 'Lookup failed.');
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
-
   const innerContent = (
     <>
       {/* Main Workspace Header */}
@@ -530,11 +582,11 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
               <MessageSquare className="w-5 h-5" />
             </span>
             <h1 className="text-xl font-extrabold text-zinc-950 font-mono tracking-tight uppercase">
-              {token ? 'Tenant Support Center' : 'Helpdesk Support Center'}
+              {isRegistered ? 'Tenant Support Center' : 'Helpdesk Support Center'}
             </h1>
           </div>
           <p className="text-xs text-zinc-400 font-semibold tracking-tight mt-1 max-w-2xl">
-            {token 
+            {isRegistered 
               ? 'Welcome back! Create secure workspace tickets, track ongoing discussions with support staff, and review system audits.' 
               : 'Create guest support tickets, track active discussions, view status streams, and collaborate directly with our operations team.'}
           </p>
@@ -546,37 +598,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         {/* Left Col: Dispatch Triage & Simulation (2 spans) */}
         <div className="xl:col-span-2 space-y-6">
           
-          {/* Guest Simulation Switcher Card (Only shown if unauthenticated) */}
-          {!token && (
-            <div className="bg-white border border-zinc-200/60 shadow-md p-6 rounded-2xl space-y-3.5">
-              <div className="flex items-center gap-2">
-                <SlidersVertical className="w-4 h-4 text-indigo-600" />
-                <span className="text-xs font-extrabold text-zinc-900 font-mono uppercase tracking-wider">Simulation Profile Switcher</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 font-bold leading-relaxed">
-                Toggle simulated guest client profiles below to automatically populate sandbox test values and test real DB transactions:
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1.5">
-                {(['Acme Creative Corp', 'TechVibe Media', 'PixelPerfect Agency'] as const).map((profile) => (
-                  <button
-                    key={profile}
-                    type="button"
-                    onClick={() => {
-                      setActiveProfile(profile);
-                      toast.info(`Switched simulated guest profile context to: ${profile}`);
-                    }}
-                    className={`px-3.5 py-2 rounded-xl text-[10px] font-extrabold font-mono transition-all border shadow-sm ${
-                      activeProfile === profile
-                        ? 'bg-gradient-to-r from-[#030213] to-indigo-950 text-white border-zinc-900'
-                        : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800'
-                    }`}
-                  >
-                    {profile}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {/* Ticket Dispatch Card */}
           <div className="bg-white border border-zinc-200/60 shadow-md rounded-2xl overflow-hidden">
@@ -586,14 +608,14 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
                 <span>Dispatch Support Ticket</span>
               </h4>
               <p className="text-zinc-400 font-semibold text-[11px] mt-0.5">
-                {token ? 'Securely lodge a priority workspace ticket.' : 'Describe structural errors, API concerns, or pre-sign-up issues.'}
+                {isRegistered ? 'Securely lodge a priority workspace ticket.' : 'Describe structural errors, API concerns, or pre-sign-up issues.'}
               </p>
             </div>
 
             <form onSubmit={handleCreateTicket} className="p-6 space-y-5">
               
               {/* If guest, display read-only or editable sender profile details for clarity */}
-              {!token && (
+              {!isRegistered && (
                 <div className="grid grid-cols-2 gap-4 bg-zinc-50 p-4 rounded-xl border border-zinc-200/60">
                   <div>
                     <label className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">Your Name</label>
@@ -705,7 +727,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
                   className="border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 text-[10px] font-bold h-9 px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
                 >
                   <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Attach Logs</span>
+                  <span>Attachments</span>
                 </button>
                 <input 
                   type="file"
@@ -729,48 +751,69 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
               </div>
             </form>
           </div>
-
-          {/* Session Recovery / Ticket Lookup Card (Always available in guest/unauthenticated mode) */}
-          {!token && (
+          {/* Active & Past Queries for Registered Users */}
+          {isRegistered && (
             <div className="bg-white border border-zinc-200/60 shadow-md rounded-2xl overflow-hidden p-6 space-y-4">
               <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
-                <Lock className="w-4 h-4 text-indigo-600" />
-                <h4 className="text-xs uppercase tracking-wider text-zinc-800 font-extrabold font-mono">Restore Guest Session</h4>
+                <InboxIcon className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs uppercase tracking-wider text-zinc-800 font-extrabold font-mono">Your Support Queries</h4>
               </div>
-              <p className="text-[11px] text-zinc-400 font-bold leading-relaxed">
-                Closed your tab? Reopen your active live-chat thread and previous logs instantly by entering your ticket details:
-              </p>
-              <form onSubmit={handleLookupTicket} className="space-y-3.5">
-                <div>
-                  <label className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">Registered Email</label>
-                  <input 
-                    type="email" 
-                    required
-                    placeholder="e.g. sarah@acme.com"
-                    value={lookupEmail}
-                    onChange={(e) => setLookupEmail(e.target.value)}
-                    className="w-full mt-1.5 px-3 py-2.5 rounded-xl bg-zinc-50/50 border border-zinc-200 text-xs text-zinc-950 font-semibold focus:outline-none"
-                  />
+              
+              {tickets.length === 0 ? (
+                <div className="text-center py-8 px-4 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
+                  <HelpCircle className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-zinc-500">No support tickets lodged yet.</p>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Use the dispatch form above to submit your first query.</p>
                 </div>
-                <div>
-                  <label className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wider">Ticket Recovery Code</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="e.g. TCK-1234"
-                    value={lookupCode}
-                    onChange={(e) => setLookupCode(e.target.value)}
-                    className="w-full mt-1.5 px-3 py-2.5 rounded-xl bg-zinc-50/50 border border-zinc-200 text-xs text-zinc-950 font-mono font-extrabold focus:outline-none"
-                  />
+              ) : (
+                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-200">
+                  {tickets.map((t) => {
+                    const isActive = t.id === selectedTicketId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setSelectedTicketId(t.id)}
+                        className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 shadow-sm select-none relative ${
+                          isActive
+                            ? 'bg-indigo-50/60 border-indigo-200 text-indigo-950 font-extrabold'
+                            : 'bg-white border-zinc-150 hover:bg-zinc-50/80 text-zinc-700 hover:border-zinc-200'
+                        }`}
+                      >
+                        {isActive && (
+                          <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-600 rounded-r" />
+                        )}
+                        <div className="min-w-0 flex-1 pl-1.5">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[9.5px] font-mono font-black tracking-wider uppercase text-indigo-600">
+                              {t.ticketCode}
+                            </span>
+                            <span className="text-[8px] font-mono font-bold bg-zinc-100/70 border border-zinc-200 text-zinc-500 px-1.5 py-0.2 rounded uppercase">
+                              {t.category}
+                            </span>
+                          </div>
+                          <h5 className="text-[11.5px] font-bold truncate leading-snug">
+                            {t.subject}
+                          </h5>
+                          <span className="text-[8px] text-zinc-400 font-mono mt-0.5 block">
+                            {mounted ? new Date(t.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                          </span>
+                        </div>
+                        
+                        {/* Status badge */}
+                        <span className={`px-2 py-0.5 text-[8px] font-mono font-black rounded-lg border shrink-0 ${
+                          t.status === 'open' ? 'bg-blue-50 text-blue-600 border-blue-150' :
+                          t.status === 'in_progress' ? 'bg-amber-50 text-amber-600 border-amber-150' :
+                          t.status === 'closed' ? 'bg-zinc-50 text-zinc-500 border-zinc-150' :
+                          'bg-zinc-50 text-zinc-500 border-zinc-200'
+                        }`}>
+                          {t.status.toUpperCase().replace('_', ' ')}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <button 
-                  type="submit"
-                  disabled={isLookingUp}
-                  className="w-full bg-zinc-950 hover:bg-zinc-900 text-white font-mono font-extrabold text-[10px] uppercase tracking-wider h-10 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  {isLookingUp ? 'Searching Database...' : 'Recover Active Session'}
-                </button>
-              </form>
+              )}
             </div>
           )}
 
@@ -816,7 +859,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
                   <span className={`px-2.5 py-1 text-[8.5px] font-mono font-black rounded-lg border ${
                     activeTicket.status === 'open' ? 'bg-blue-50 text-blue-600 border-blue-150' :
                     activeTicket.status === 'in_progress' ? 'bg-amber-50 text-amber-600 border-amber-150' :
-                    activeTicket.status === 'resolved' ? 'bg-emerald-50 text-emerald-600 border-emerald-150' :
+                    activeTicket.status === 'closed' ? 'bg-zinc-50 text-zinc-500 border-zinc-150' :
                     'bg-zinc-50 text-zinc-500 border-zinc-200'
                   }`}>
                     {activeTicket.status.toUpperCase().replace('_', ' ')}
@@ -867,8 +910,14 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
                                   <a
                                     key={fileIdx}
                                     href={file.base64}
-                                    download={file.name}
-                                    className="flex items-center gap-2.5 p-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/60 rounded-xl transition-all select-none"
+                                    download={!isImage ? file.name : undefined}
+                                    onClick={(e) => {
+                                      if (isImage) {
+                                        e.preventDefault();
+                                        setPreviewImage({ url: file.base64, name: file.name });
+                                      }
+                                    }}
+                                    className="flex items-center gap-2.5 p-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/60 rounded-xl transition-all select-none cursor-pointer"
                                   >
                                     <div className="bg-white p-1.5 rounded-lg border border-zinc-200/50 shadow-sm shrink-0">
                                       {isImage ? (
@@ -915,57 +964,71 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
             {/* Composer */}
             {tickets.length > 0 && activeTicket && (
               <div className="border-t border-zinc-200/50 p-4 bg-white space-y-3">
-                {/* Reply Files Preview */}
-                {replyFiles.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-2.5 bg-zinc-50 rounded-xl border border-zinc-200/50">
-                    {replyFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold text-zinc-700 shadow-sm">
-                        <span className="truncate max-w-[120px]">{file.name}</span>
-                        <span className="text-[9px] text-zinc-400 font-mono">({formatFileSize(file.size)})</span>
-                        <button
-                          type="button"
-                          onClick={() => removeSelectedFile(idx, 'reply')}
-                          className="text-zinc-400 hover:text-red-500 transition-colors ml-1"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
+                {activeTicket.status === 'closed' ? (
+                  <div className="flex flex-col items-center justify-center p-6 bg-zinc-50 border border-zinc-200/60 rounded-xl space-y-2 text-center shadow-inner">
+                    <span className="p-2.5 bg-zinc-100 rounded-xl text-zinc-400 border border-zinc-200/30">
+                      <Lock className="w-5 h-5 text-zinc-500 animate-pulse" />
+                    </span>
+                    <h5 className="text-xs font-black text-zinc-800 font-mono tracking-tight uppercase">Support Thread Closed</h5>
+                    <p className="text-[10px] text-zinc-400 max-w-md font-bold leading-normal">
+                      This support request has been completed and marked as closed by operations administration. No further responses can be sent on this thread. If you require additional help, please raise a new ticket.
+                    </p>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Reply Files Preview */}
+                    {replyFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 p-2.5 bg-zinc-50 rounded-xl border border-zinc-200/50">
+                        {replyFiles.map((file, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-zinc-200 text-[10px] font-bold text-zinc-700 shadow-sm">
+                            <span className="truncate max-w-[120px]">{file.name}</span>
+                            <span className="text-[9px] text-zinc-400 font-mono">({formatFileSize(file.size)})</span>
+                            <button
+                              type="button"
+                              onClick={() => removeSelectedFile(idx, 'reply')}
+                              className="text-zinc-400 hover:text-red-500 transition-colors ml-1"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                <form onSubmit={handlePostReply} className="flex gap-2.5 items-center">
-                  <button 
-                    type="button" 
-                    onClick={() => replyFileInputRef.current?.click()}
-                    className="border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 p-3 rounded-xl flex items-center justify-center shadow-sm transition-all"
-                    title="Attach logs or files"
-                  >
-                    <Paperclip className="w-4 h-4 text-indigo-500" />
-                  </button>
-                  <input 
-                    type="file"
-                    ref={replyFileInputRef}
-                    className="hidden"
-                    multiple
-                    onChange={(e) => handleFileChange(e, 'reply')}
-                  />
-                  <input 
-                    type="text" 
-                    value={replyText}
-                    onChange={(e) => setReplyMessage(e.target.value)}
-                    placeholder="Reply to helpdesk support operator..."
-                    className="flex-1 bg-zinc-50 border border-zinc-200/80 text-xs font-semibold px-4.5 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                    disabled={isReplying}
-                  />
-                  <button 
-                    type="submit"
-                    disabled={isReplying || (!replyText.trim() && replyFiles.length === 0)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs p-3 rounded-xl transition-all shadow-md shadow-indigo-600/5 disabled:opacity-50"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </form>
+                    <form onSubmit={handlePostReply} className="flex gap-2.5 items-center">
+                      <button 
+                        type="button" 
+                        onClick={() => replyFileInputRef.current?.click()}
+                        className="border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 p-3 rounded-xl flex items-center justify-center shadow-sm transition-all"
+                        title="Attachments"
+                      >
+                        <Paperclip className="w-4 h-4 text-indigo-500" />
+                      </button>
+                      <input 
+                        type="file"
+                        ref={replyFileInputRef}
+                        className="hidden"
+                        multiple
+                        onChange={(e) => handleFileChange(e, 'reply')}
+                      />
+                      <input 
+                        type="text" 
+                        value={replyText}
+                        onChange={(e) => setReplyMessage(e.target.value)}
+                        placeholder="Reply to helpdesk support operator..."
+                        className="flex-1 bg-zinc-50 border border-zinc-200/80 text-xs font-semibold px-4.5 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        disabled={isReplying}
+                      />
+                      <button 
+                        type="submit"
+                        disabled={isReplying || (!replyText.trim() && replyFiles.length === 0)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs p-3 rounded-xl transition-all shadow-md shadow-indigo-600/5 disabled:opacity-50"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -973,6 +1036,17 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
       </div>
     </>
   );
+
+  if (isLoading) {
+    return (
+      <div className="h-[500px] flex items-center justify-center bg-white border border-zinc-200/60 rounded-2xl shadow-md p-8">
+        <div className="text-center space-y-4">
+          <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto" />
+          <p className="text-xs font-bold text-zinc-400 font-mono">Syncing helpdesk dashboard logs...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (embedMode) {
     return (
@@ -991,15 +1065,18 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
             <MessageSquare className="size-5 text-white" />
           </div>
           <span className="text-xl font-extrabold tracking-tight text-zinc-950 font-mono">
-            {token ? 'NCONNECT CUSTOMER SUPPORT' : 'NCONNECT GUEST SUPPORT'}
+            {isRegistered ? 'NCONNECT CUSTOMER SUPPORT' : 'NCONNECT GUEST SUPPORT'}
           </span>
         </div>
 
         <button 
-          onClick={() => router.push(token ? '/dashboard' : '/signin')}
+          onClick={() => {
+            const loggedIn = typeof window !== 'undefined' ? !!localStorage.getItem('nconnect_id_token') : false;
+            router.push(loggedIn ? '/dashboard' : '/signin');
+          }}
           className="text-xs font-bold text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200/80 px-4 py-2.5 rounded-xl transition-all shadow-sm"
         >
-          {token ? 'Back to Dashboard' : 'Back to Sign In'}
+          {typeof window !== 'undefined' && localStorage.getItem('nconnect_id_token') ? 'Back to Dashboard' : 'Back to Sign In'}
         </button>
       </header>
 
@@ -1014,6 +1091,51 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
           </div>
         ) : innerContent}
       </main>
+
+      {/* Premium Image Preview Modal Overlay */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-md transition-all duration-300 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header / Info bar */}
+            <div className="absolute top-[-45px] left-0 right-0 flex items-center justify-between text-white px-1">
+              <span className="text-xs font-mono font-bold truncate max-w-[70%]">{previewImage.name}</span>
+              <div className="flex items-center gap-3">
+                <a 
+                  href={previewImage.url} 
+                  download={previewImage.name}
+                  className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/85 text-zinc-300 hover:text-white border border-zinc-700/40 shadow-sm transition-all flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider font-mono px-3"
+                  title="Save to Disk"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </a>
+                <button 
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/85 text-zinc-300 hover:text-white border border-zinc-700/40 shadow-sm transition-all"
+                  title="Close Preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Image */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl flex items-center justify-center p-1.5 max-h-[80vh]">
+              <img 
+                src={previewImage.url} 
+                alt={previewImage.name} 
+                className="max-w-full max-h-[75vh] object-contain rounded-xl select-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

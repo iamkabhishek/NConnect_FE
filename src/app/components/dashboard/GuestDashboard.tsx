@@ -10,10 +10,8 @@ import {
   BarChart3, 
   HelpCircle, 
   ArrowRight,
-  ShieldAlert,
   Layers,
-  ArrowUpRight,
-  UserCheck
+  ArrowUpRight
 } from 'lucide-react';
 import { ModuleLayout } from '@/app/components/layout/ModuleLayout';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
@@ -24,15 +22,6 @@ interface GuestDashboardProps {
 
 export function GuestDashboard({ onNavigate }: GuestDashboardProps) {
   const { currentUser } = useWorkspace();
-  const [pulsing, setPulsing] = useState(true);
-
-  // Micro-animations effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPulsing(prev => !prev);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   const guestModules = [
     {
@@ -95,30 +84,6 @@ export function GuestDashboard({ onNavigate }: GuestDashboardProps) {
     <ModuleLayout activeItem="dashboard" onNavigate={onNavigate}>
       <div className="max-w-7xl mx-auto px-8 py-10 space-y-10">
         
-        {/* Guest Warning Notice */}
-        <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/20 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm backdrop-blur-sm">
-          <div className="flex items-start gap-4">
-            <span className="p-3 bg-amber-500/15 text-amber-700 rounded-xl border border-amber-500/20 shrink-0">
-              <ShieldAlert className="w-5 h-5" />
-            </span>
-            <div>
-              <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
-                <span>Guest Sandbox Session Active</span>
-                <span className={`inline-block w-2 h-2 rounded-full bg-amber-500 ${pulsing ? 'animate-ping' : ''}`} />
-              </h4>
-              <p className="text-xs text-amber-800/80 font-medium mt-1 leading-relaxed max-w-3xl">
-                You are currently exploring NConnect as a Guest. You can freely navigate, preview all modules, review simulated stats, and raise mock support tickets inside the Helpdesk.
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={() => onNavigate?.('signup')}
-            className="px-4.5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-md shadow-amber-600/10 transition-all shrink-0 border border-amber-500/30 flex items-center gap-1.5 self-start sm:self-center"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Register for Free</span>
-          </button>
-        </div>
 
         {/* Hero Section */}
         <div className="relative rounded-3xl overflow-hidden border border-zinc-200/50 shadow-xl bg-gradient-to-br from-[#030213] via-[#0b0a2b] to-indigo-950 p-8 sm:p-10 select-none">
