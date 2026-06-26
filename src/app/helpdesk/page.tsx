@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { getMe } from '../lib/api';
+import { API_URL, getMe } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface Message {
@@ -231,7 +231,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
       if (effectiveToken) {
         try {
           // Fetch Authenticated Tickets
-          const res = await fetch('/api/v1/helpdesk/tickets', {
+          const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
             headers: { 'Authorization': `Bearer ${effectiveToken}` }
           });
           const data = await res.json();
@@ -253,7 +253,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
         if (urlCode && urlEmail) {
           try {
-            const res = await fetch('/api/v1/helpdesk/tickets/guest/lookup', {
+            const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/guest/lookup`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: urlEmail, ticketCode: urlCode }),
@@ -416,7 +416,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
       if (token) {
         // Authenticated client creation
-        const res = await fetch('/api/v1/helpdesk/tickets', {
+        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -446,7 +446,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         // Guest mode creation
         const guestSlug = guestName ? guestName.toUpperCase().replace(/\s+/g, '_').substring(0, 15) : 'ANONYMOUS';
         const workspaceId = `GUEST_${guestSlug}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const res = await fetch('/api/v1/helpdesk/tickets', {
+        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -522,7 +522,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
       if (token) {
         // Authenticated client reply
-        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
+        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -544,7 +544,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         const ticket = tickets.find(t => t.id === selectedTicketId);
         if (!ticket) return;
 
-        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
+        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
