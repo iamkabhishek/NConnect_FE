@@ -9,7 +9,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
-    let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://xj555ln9ja.execute-api.ap-south-1.amazonaws.com';
     
     // Robustness check: if the API URL is specified without a protocol, prepend https://
     if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
