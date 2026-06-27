@@ -32,6 +32,7 @@ import {
   Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_URL } from '../../lib/api';
 
 // Interfaces mapping directly to DB schemas
 interface SupportTicket {
@@ -111,7 +112,7 @@ export default function ModuleHelpDesk() {
 
     if (storedToken && isPlatformAdminToken) {
       headers['Authorization'] = `Bearer ${storedToken}`;
-    } else {
+    } else if (process.env.NODE_ENV === 'development') {
       // In local dev, generate a mock platform_admin token so Hono authInjection can decode it base64-wise
       const mockAdminPayload = {
         sub: 'ops-admin-test-uid',
@@ -127,6 +128,14 @@ export default function ModuleHelpDesk() {
       } catch (e) {
         console.error('Failed to generate mock token:', e);
       }
+    } else if (!storedToken) {
+      console.warn('Ops HelpDesk: no nconnect_id_token found for ops requests. This will likely cause 401 Unauthorized if running in production.');
+    } else {
+      console.warn('Ops HelpDesk: stored token is not a platform_admin token; no Authorization header was attached.');
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('Ops HelpDesk auth headers prepared:', headers);
     }
     return headers;
   };
@@ -191,7 +200,7 @@ export default function ModuleHelpDesk() {
   const fetchTickets = async (quiet = false) => {
     if (!quiet) setIsLoading(true);
     try {
-      const res = await fetch('/api/v1/ops/helpdesk/tickets', {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets`, {
         headers: getAuthHeaders(null)
       });
       const data = await res.json();
@@ -231,7 +240,7 @@ export default function ModuleHelpDesk() {
     if (!selectedTicketId) return;
     if (!quiet) setIsRepliesLoading(true);
     try {
-      const res = await fetch(`/api/v1/ops/helpdesk/tickets/${selectedTicketId}/messages`, {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}/messages`, {
         headers: getAuthHeaders(null)
       });
       const data = await res.json();
@@ -492,7 +501,7 @@ export default function ModuleHelpDesk() {
         finalMessage += `\n\n---ATTACHMENTS---\n${JSON.stringify(replyFiles)}`;
       }
 
-      const res = await fetch(`/api/v1/ops/helpdesk/tickets/${selectedTicketId}/messages`, {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}/messages`, {
         method: 'POST',
         headers: getAuthHeaders('application/json'),
         body: JSON.stringify({
@@ -533,7 +542,7 @@ export default function ModuleHelpDesk() {
   const handleStatusChange = async (status: SupportTicket['status']) => {
     if (!selectedTicketId) return;
     try {
-      const res = await fetch(`/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
         method: 'PATCH',
         headers: getAuthHeaders('application/json'),
         body: JSON.stringify({ status }),
@@ -558,7 +567,7 @@ export default function ModuleHelpDesk() {
   const handlePriorityChange = async (priority: SupportTicket['priority']) => {
     if (!selectedTicketId) return;
     try {
-      const res = await fetch(`/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
         method: 'PATCH',
         headers: getAuthHeaders('application/json'),
         body: JSON.stringify({ priority }),
@@ -583,7 +592,7 @@ export default function ModuleHelpDesk() {
   const handleAssignToMe = async () => {
     if (!selectedTicketId) return;
     try {
-      const res = await fetch(`/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
+      const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
         method: 'PATCH',
         headers: getAuthHeaders('application/json'),
         body: JSON.stringify({ assignedTo: 'Naman Dev' }),
