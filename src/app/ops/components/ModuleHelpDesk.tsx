@@ -123,7 +123,10 @@ export default function ModuleHelpDesk() {
       };
       try {
         const base64Payload = btoa(JSON.stringify(mockAdminPayload));
-        const mockToken = `mockHeader.${base64Payload}.mockSignature`;
+        const mockHeader = { alg: 'none', typ: 'JWT' };
+        const base64Header = btoa(JSON.stringify(mockHeader));
+        const mockSignature = btoa('mockSignature');
+        const mockToken = `${base64Header}.${base64Payload}.${mockSignature}`;
         headers['Authorization'] = `Bearer ${mockToken}`;
       } catch (e) {
         console.error('Failed to generate mock token:', e);
