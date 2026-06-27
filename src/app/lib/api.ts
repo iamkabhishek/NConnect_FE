@@ -2,7 +2,7 @@
  * API Utility Client for NConnect Authentication and Onboarding Flow
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://xj555ln9ja.execute-api.ap-south-1.amazonaws.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://xj555ln9ja.execute-api.ap-south-1.amazonaws.com';
 const COGNITO_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '4d8dj537u5t23j8jghhag067hn';
 const COGNITO_REGION = process.env.NEXT_PUBLIC_COGNITO_REGION || 'ap-south-1';
 

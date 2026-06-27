@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { API_URL, getMe } from '../lib/api';
+import { getMe } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface Message {
@@ -175,10 +175,9 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
     const checkAuthAndLoad = async () => {
       setIsLoading(true);
       const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
-
+      
       let isPlatformAdmin = false;
       let isRegisteredUser = false;
-      let validToken: string | null = storedToken;
 
       if (storedToken) {
         try {
@@ -188,27 +187,18 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
             while (normalized.length % 4) normalized += '=';
             const payload = JSON.parse(atob(normalized));
             if (payload) {
-              // If token has expiry, validate it and drop expired tokens
-              const now = Math.floor(Date.now() / 1000);
-              if (payload.exp && typeof payload.exp === 'number' && payload.exp < now) {
-                try { localStorage.removeItem('nconnect_id_token'); } catch (err) { console.warn('Failed to remove expired token', err); }
-                validToken = null;
-                console.warn('Helpdesk: stored id_token expired — ignoring it.');
+              if (payload['custom:role'] === 'platform_admin') {
+                isPlatformAdmin = true;
               } else {
-                if (payload['custom:role'] === 'platform_admin') {
-                  isPlatformAdmin = true;
-                } else {
-                  isRegisteredUser = true;
-                }
-                const tokenEmail = payload.email || '';
-                setGuestEmail(tokenEmail);
-                setGuestName(tokenEmail.split('@')[0] || 'Registered User');
+                isRegisteredUser = true;
               }
+              const tokenEmail = payload.email || '';
+              setGuestEmail(tokenEmail);
+              setGuestName(tokenEmail.split('@')[0] || 'Registered User');
             }
           }
         } catch (e) {
           console.error('Failed to parse token role in helpdesk:', e);
-          validToken = null;
         }
       } else if (currentUser && currentUser.role !== 'guest') {
         isRegisteredUser = true;
@@ -222,16 +212,16 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
       let effectiveToken = null;
       if (embedMode) {
         setIsRegistered(isRegisteredUser);
-        effectiveToken = isPlatformAdmin ? null : validToken;
+        effectiveToken = isPlatformAdmin ? null : storedToken;
         setToken(effectiveToken);
       } else {
         setIsRegistered(false);
         setToken(null);
       }
       
-      if (validToken) {
+      if (storedToken) {
         try {
-          const profile = await getMe(validToken);
+          const profile = await getMe(storedToken);
           setUserProfile(profile);
         } catch (err: any) {
           console.error('Failed to load profile in helpdesk:', err);
@@ -241,7 +231,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
       if (effectiveToken) {
         try {
           // Fetch Authenticated Tickets
-          const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
+          const res = await fetch('/api/v1/helpdesk/tickets', {
             headers: { 'Authorization': `Bearer ${effectiveToken}` }
           });
           const data = await res.json();
@@ -263,7 +253,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
         if (urlCode && urlEmail) {
           try {
-            const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/guest/lookup`, {
+            const res = await fetch('/api/v1/helpdesk/tickets/guest/lookup', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: urlEmail, ticketCode: urlCode }),
@@ -426,7 +416,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
       if (token) {
         // Authenticated client creation
-        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
+        const res = await fetch('/api/v1/helpdesk/tickets', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -456,7 +446,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         // Guest mode creation
         const guestSlug = guestName ? guestName.toUpperCase().replace(/\s+/g, '_').substring(0, 15) : 'ANONYMOUS';
         const workspaceId = `GUEST_${guestSlug}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets`, {
+        const res = await fetch('/api/v1/helpdesk/tickets', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -532,7 +522,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
 
       if (token) {
         // Authenticated client reply
-        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
+        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -554,7 +544,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         const ticket = tickets.find(t => t.id === selectedTicketId);
         if (!ticket) return;
 
-        const res = await fetch(`${API_URL}/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
+        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
