@@ -19,6 +19,19 @@ export interface VerifyOtpResponse {
   expiresIn: number;
 }
 
+/**
+ * Sanitizes and retrieves the ID token from local storage.
+ * Prevents 401 errors caused by hidden characters or accidental quotes.
+ */
+export function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const token = localStorage.getItem('nconnect_id_token');
+  if (!token) return null;
+  
+  // Robust sanitization: trim and remove any surrounding literal quotes
+  return token.trim().replace(/^"|"$/g, '');
+}
+
 export interface UserMeResponse {
   userId: string;
   customUserId: string;
@@ -81,11 +94,16 @@ export async function verifyOtp(email: string, otp: string, session: string): Pr
 /**
  * Retrieves the currently authenticated user's profile and workspace state.
  */
-export async function getMe(token: string): Promise<UserMeResponse> {
+export async function getMe(token?: string): Promise<UserMeResponse> {
+  const activeToken = token || getStoredToken();
+  if (!activeToken) {
+    throw new Error('Authentication token is missing.');
+  }
+
   const response = await fetch(`${API_URL}/api/v1/auth/me`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${activeToken.trim().replace(/^"|"$/g, '')}`,
     },
   });
 
@@ -109,7 +127,7 @@ export async function completeOnboarding(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
     body: JSON.stringify({ workspaceName, purpose }),
   });
@@ -130,7 +148,7 @@ export async function updateProfile(token: string, name: string): Promise<any> {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
     body: JSON.stringify({ name }),
   });
@@ -189,7 +207,7 @@ export async function getProfile(token: string): Promise<any> {
   const response = await fetch(`${API_URL}/api/v1/users/profile`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
   });
 

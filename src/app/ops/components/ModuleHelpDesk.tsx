@@ -90,27 +90,10 @@ export default function ModuleHelpDesk() {
     }
     
     const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
-    let isPlatformAdminToken = false;
-    
     if (storedToken) {
-      try {
-        const payloadBase64 = storedToken.split('.')[1];
-        if (payloadBase64) {
-          // Decode URL-safe base64 cleanly
-          let normalized = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-          while (normalized.length % 4) normalized += '=';
-          const payload = JSON.parse(atob(normalized));
-          if (payload && payload['custom:role'] === 'platform_admin') {
-            isPlatformAdminToken = true;
-          }
-        }
-      } catch (e) {
-        console.error('Failed to parse stored token:', e);
-      }
-    }
-
-    if (storedToken && isPlatformAdminToken) {
-      headers['Authorization'] = `Bearer ${storedToken}`;
+      // Trim and remove any accidentally stored quotes
+      const cleanToken = storedToken.trim().replace(/^"|"$/g, '');
+      headers['Authorization'] = `Bearer ${cleanToken}`;
     } else {
       // In local dev, generate a mock platform_admin token so Hono authInjection can decode it base64-wise
       const mockAdminPayload = {

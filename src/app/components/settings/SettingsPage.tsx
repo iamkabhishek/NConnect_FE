@@ -7,7 +7,7 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
 import { toast } from 'sonner';
-import { getProfile, updateProfile } from '@/app/lib/api';
+import { getProfile, updateProfile, getStoredToken } from '@/app/lib/api';
 import {
   Select,
   SelectContent,
@@ -235,7 +235,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
       const fetchProfile = async () => {
         setIsLoadingProfile(true);
         try {
-          const token = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+          const token = getStoredToken();
           if (token) {
             const result = await getProfile(token);
             if (result && result.user) {
@@ -348,7 +348,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
     console.log('Saving profile settings:', profileSettings, onboardingData);
     try {
       setIsLoadingProfile(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+      const token = getStoredToken();
 
       // Compute full name if we have onboarding personal details, otherwise fall back to profileSettings.fullName
       const computedFullName = onboardingData?.personal

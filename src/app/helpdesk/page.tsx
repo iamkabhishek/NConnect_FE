@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { getMe } from '../lib/api';
+import { getMe, getStoredToken } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
 interface Message {
@@ -174,7 +174,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
   useEffect(() => {
     const checkAuthAndLoad = async () => {
       setIsLoading(true);
-      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
+      const storedToken = getStoredToken();
       
       let isPlatformAdmin = false;
       let isRegisteredUser = false;
@@ -232,7 +232,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         try {
           // Fetch Authenticated Tickets
           const res = await fetch('/api/v1/helpdesk/tickets', {
-            headers: { 'Authorization': `Bearer ${effectiveToken}` }
+            headers: { 'Authorization': `Bearer ${effectiveToken.trim().replace(/^"|"$/g, '')}` }
           });
           const data = await res.json();
           if (data.success && data.tickets) {
@@ -355,7 +355,9 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
           headers['Authorization'] = `Bearer ${token}`;
         }
         
-        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, { headers });
+        const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
+          headers: { 'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}` }
+        });
         const data = await res.json();
         if (data.success && data.messages) {
           setActiveTicketMessages(data.messages);
@@ -420,7 +422,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
           },
           body: JSON.stringify({
             subject,
@@ -526,7 +528,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
           },
           body: JSON.stringify({ message: finalMessage }),
         });

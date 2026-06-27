@@ -22,7 +22,7 @@ export interface OnboardingData {
 }
 
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { completeOnboarding, refreshCognitoTokens, updateProfile } from '@/app/lib/api';
+import { completeOnboarding, getStoredToken, refreshCognitoTokens, updateProfile } from '@/app/lib/api';
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { currentUser, setCurrentUser } = useWorkspace();
@@ -153,7 +153,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setFinalizationError(null);
 
     try {
-      const idToken = localStorage.getItem('nconnect_id_token');
+      const idToken = getStoredToken();
       const refreshToken = localStorage.getItem('nconnect_refresh_token');
 
       if (!idToken) {
