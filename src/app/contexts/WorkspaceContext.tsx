@@ -15,7 +15,7 @@ export interface UserPersona {
   id: string;
   name: string;
   email: string;
-  role: 'owner' | 'workspace_admin' | 'workspace_member' | 'guest';
+  role: 'owner' | 'workspace_admin' | 'workspace_member' | 'guest' | 'platform_admin';
   onboarded: boolean;
   avatar?: string;
   permissions: {

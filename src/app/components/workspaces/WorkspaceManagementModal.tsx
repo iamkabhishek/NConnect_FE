@@ -925,7 +925,7 @@ export function WorkspaceManagementModal({ workspace, onClose, onUpdate }: Works
                           <Eye className="size-4 mr-1" />
                           View Details
                         </Button>
-                        {member.role !== 'owner' && (workspace.role === 'owner' || workspace.role === 'admin') && (
+                        {member.role !== 'owner' && (workspace.role === 'owner' || workspace.role === 'admin' || workspace.role === 'platform_admin') && (
                           <Button
                             variant="ghost"
                             size="sm"

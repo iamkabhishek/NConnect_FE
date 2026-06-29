@@ -70,7 +70,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
         const tabParam = params.get('tab') as SettingsTab;
         const validTabs: SettingsTab[] = ['workspace', 'profile', 'esp', 'notifications', 'billing', 'api'];
         if (tabParam && validTabs.includes(tabParam)) {
-          if (tabParam === 'billing' && currentUser?.role !== 'owner') {
+          if (tabParam === 'billing' && currentUser?.role !== 'owner' && currentUser?.role !== 'platform_admin') {
             setActiveTab('workspace');
           } else {
             setActiveTab(tabParam);
@@ -224,7 +224,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
 
   // Handle auto-routing away from billing if role is changed and is not owner
   useEffect(() => {
-    if (currentUser?.role !== 'owner' && activeTab === 'billing') {
+    if (currentUser?.role !== 'owner' && currentUser?.role !== 'platform_admin' && activeTab === 'billing') {
       setActiveTab('workspace');
     }
   }, [currentUser, activeTab]);

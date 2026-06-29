@@ -41,14 +41,16 @@ export default function OpsCockpitPage() {
   // Synchronize operator name if updated in owner profile or if currentUser changes
   useEffect(() => {
     if (currentUser) {
+      const isPowerUser = currentUser.role === 'owner' || currentUser.role === 'platform_admin';
       setActiveOperator(prev => ({
         ...prev,
         name: currentUser.name,
         email: currentUser.email,
-        accessLevel: currentUser.role === 'owner' ? 'L3 - Full' : 'L1 - Viewer'
+        accessLevel: isPowerUser ? 'L3 - Full' : 'L1 - Viewer'
       }));
     }
   }, [currentUser]);
+
 
   const handleProfileUpdate = (profile: OwnerProfile) => {
     setActiveOperator(prev => ({
@@ -66,69 +68,6 @@ export default function OpsCockpitPage() {
     }, 450);
     return () => clearTimeout(timer);
   }, [activeTab]);
-
-  // If NOT organization owner, deny access with an ultra-premium block
-  if (currentUser.role !== 'owner') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-slate-900 to-indigo-950 flex items-center justify-center p-6 text-white selection:bg-purple-500/30">
-        <div className="w-full max-w-lg bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-2xl rounded-3xl p-10 shadow-2xl relative overflow-hidden">
-          <div className="absolute -right-12 -top-12 w-40 h-40 bg-purple-600/10 rounded-full blur-3xl" />
-          <div className="absolute -left-12 -bottom-12 w-40 h-40 bg-fuchsia-600/10 rounded-full blur-3xl" />
-
-          {/* Locked Badge */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center justify-center">
-              <Lock className="size-10 text-red-400 animate-pulse" />
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-2xl font-black text-center tracking-tight mb-2 text-zinc-100 flex items-center justify-center gap-2">
-            <ShieldAlert className="size-6 text-red-400" />
-            Access Restricted
-          </h1>
-          <p className="text-zinc-400 text-sm text-center mb-8 font-medium">
-            This administrative panel is reserved exclusively for the <strong>Organization Owner</strong>.
-          </p>
-
-          {/* Current Persona Card */}
-          <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-5 mb-8">
-            <p className="text-[10px] font-mono font-bold tracking-widest text-zinc-500 uppercase mb-2">
-              Your Current Identity:
-            </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-white text-base">{currentUser.name}</h3>
-                <p className="text-xs text-zinc-400">{currentUser.email}</p>
-              </div>
-              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                currentUser.role === 'workspace_admin'
-                  ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
-                  : 'bg-zinc-700/50 text-zinc-300 border border-zinc-600'
-              }`}>
-                {currentUser.role.replace('_', ' ')}
-              </span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="space-y-4">
-
-            <button
-              onClick={() => {
-                // Return to dashboard route or trigger Dev Nav redirect
-                router.push('/dashboard');
-              }}
-              className="w-full h-12 bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-sm font-semibold transition-all border border-zinc-700/40 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <ArrowLeft className="size-4" />
-              Go Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Tab router
   const renderActiveModule = () => {
