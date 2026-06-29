@@ -93,10 +93,10 @@ function AppContent() {
     setCurrentModule('verify-email');
   };
 
-  const handleVerifySuccess = () => {
-    // If the active user persona is Owner and has NOT completed onboarding, go to onboarding.
+  const handleVerifySuccess = (needsOnboarding: boolean) => {
+    // If the backend says the user needs onboarding, go to onboarding.
     // Otherwise, bypass onboarding and go directly to the Dashboard!
-    if (currentUser.role === 'owner' && !currentUser.onboarded) {
+    if (needsOnboarding) {
       setCurrentModule('onboarding');
     } else {
       setCurrentModule('dashboard');
