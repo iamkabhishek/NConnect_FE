@@ -90,13 +90,27 @@ export default function ModuleHelpDesk() {
     }
     
     const storedToken = typeof window !== 'undefined' ? localStorage.getItem('nconnect_id_token') : null;
-    
-    // To make it "work like localy on deployed", we generate a mock admin token
-    // that the backend now accepts via the manual Bearer fallback.
-    let userEmail = 'ops-admin@test.com';
-    if (storedToken) {
+    const sanitizedToken = storedToken ? storedToken.trim().replace(/^"|"$/g, '') : null;
+
+    // 1. Prioritize real Cognito token if it looks valid (has a signature/kid)
+    if (sanitizedToken) {
       try {
-        const payload = JSON.parse(atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const parts = sanitizedToken.split('.');
+        if (parts.length === 3) {
+          const header = JSON.parse(atob(parts[0]));
+          if (header.kid) {
+            headers['Authorization'] = `Bearer ${sanitizedToken}`;
+            return headers;
+          }
+        }
+      } catch (e) { /* fall back to mock */ }
+    }
+
+    // 2. Fallback to mock admin token for dev/ops-bypass
+    let userEmail = 'ops-admin@test.com';
+    if (sanitizedToken) {
+      try {
+        const payload = JSON.parse(atob(sanitizedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
         userEmail = payload.email || userEmail;
       } catch (e) { /* ignore */ }
     }
@@ -121,8 +135,8 @@ export default function ModuleHelpDesk() {
       headers['Authorization'] = `Bearer ${mockToken}`;
     } catch (e) {
       console.error('Failed to generate bypass token:', e);
-      if (storedToken) {
-        headers['Authorization'] = `Bearer ${storedToken.trim().replace(/^"|"$/g, '')}`;
+      if (sanitizedToken) {
+        headers['Authorization'] = `Bearer ${sanitizedToken}`;
       }
     }
     return headers;
