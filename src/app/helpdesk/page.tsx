@@ -356,7 +356,7 @@ export default function ClientHelpdesk({ embedMode = false }: { embedMode?: bool
         }
         
         const res = await fetch(`/api/v1/helpdesk/tickets/${selectedTicketId}/messages`, {
-          headers: { 'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}` }
+          headers: token ? { 'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}` } : {}
         });
         const data = await res.json();
         if (data.success && data.messages) {
