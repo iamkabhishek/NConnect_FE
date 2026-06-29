@@ -916,6 +916,7 @@ function LandingPage({ onGetStarted, onBookDemo }: LandingPageProps) {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
                 size="lg"
+                onClick={onGetStarted}
                 className="bg-[#4A90E2] hover:bg-[#3A7BC8] text-white px-8 shadow-lg hover:shadow-xl transition-all group"
               >
                 Start Free Trial
@@ -924,6 +925,7 @@ function LandingPage({ onGetStarted, onBookDemo }: LandingPageProps) {
               <Button
                 size="lg"
                 variant="outline"
+                onClick={onBookDemo}
                 className="border-2 border-gray-300 hover:border-[#4A90E2] text-gray-700 hover:text-[#4A90E2] px-8"
               >
                 Schedule Demo

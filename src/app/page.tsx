@@ -7,6 +7,9 @@ export default function Home() {
   const router = useRouter();
 
   return (
-    <LandingPage onGetStarted={() => router.push('/welcome')} />
+    <LandingPage 
+      onGetStarted={() => router.push('/welcome')} 
+      onBookDemo={() => router.push('/schedule-demo')}
+    />
   );
 }
