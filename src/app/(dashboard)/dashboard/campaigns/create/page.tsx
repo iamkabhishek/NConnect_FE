@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CreateCampaignPage } from '@/app/components/campaigns/CreateCampaignPage';
+import { resolveRoute } from '@/app/components/ui/utils';
 
 function CreateCampaignInner() {
   const router = useRouter();
@@ -14,7 +15,7 @@ function CreateCampaignInner() {
     <CreateCampaignPage
       creationType={creationType}
       onCreateCampaign={() => router.push('/dashboard/campaigns')}
-      onNavigate={(page) => router.push(`/dashboard/${page}`)}
+      onNavigate={(page) => router.push(resolveRoute(page))}
     />
   );
 }

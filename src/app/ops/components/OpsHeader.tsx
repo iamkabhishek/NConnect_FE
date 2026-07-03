@@ -3,11 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, 
-  Activity, 
-  ShieldCheck, 
-  Clock, 
-  Terminal, 
-  Sliders 
+  Clock 
 } from 'lucide-react';
 import { PlatformOperator } from '../types';
 
@@ -50,27 +46,7 @@ export default function OpsHeader({ activeOperator }: OpsHeaderProps) {
           <span>{time || "00:00:00"}</span>
         </div>
 
-        {/* Database Health */}
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] font-mono font-bold text-zinc-400 tracking-wider uppercase">Node Latency</span>
-            <span className="text-[11px] font-bold text-zinc-700">14 ms</span>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-200/40 flex items-center justify-center">
-            <Activity className="w-4 h-4 text-purple-600 animate-pulse" />
-          </div>
-        </div>
 
-        {/* Console Integrity Token */}
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] font-mono font-bold text-zinc-400 tracking-wider uppercase">Privilege Level</span>
-            <span className="text-[11px] font-bold text-zinc-700">{activeOperator.accessLevel.split(' - ')[0]}</span>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-fuchsia-50 border border-fuchsia-200/40 flex items-center justify-center">
-            <ShieldCheck className="w-4 h-4 text-fuchsia-600" />
-          </div>
-        </div>
 
         {/* Divider */}
         <div className="h-6 w-[1px] bg-zinc-200/60"></div>

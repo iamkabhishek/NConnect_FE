@@ -10,6 +10,8 @@ export function resolveRoute(page: string): string {
   if (page === 'welcome' || page === 'signin' || page === 'signup' || page === 'verify-email' || page === 'onboarding') {
     return `/${page}`;
   }
+  if (page === 'dashboard') return '/dashboard';
+  if (page === 'helpdesk') return '/dashboard/helpdesk';
   if (page === 'workflow-wizard') return '/dashboard/workflow-wizard';
   if (page === 'automation-builder') return '/dashboard/automation/builder';
   if (page === 'automation-analytics') return '/dashboard/automation/analytics';

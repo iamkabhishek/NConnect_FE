@@ -356,7 +356,8 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
         : profileSettings.fullName;
 
       if (token && computedFullName) {
-        await updateProfile(token, computedFullName);
+        const agencyName = onboardingData?.personal?.company;
+        await updateProfile(token, computedFullName, agencyName);
       }
 
       if (currentUser && computedFullName) {
@@ -781,7 +782,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="company">Company</Label>
+                            <Label htmlFor="company">Agency</Label>
                             <Input
                               id="company"
                               value={onboardingData.personal.company || ''}
@@ -921,7 +922,7 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="agencySize">Company Size</Label>
+                            <Label htmlFor="agencySize">Agency Size</Label>
                             <Select
                               value={onboardingData.agency.size || ''}
                               onValueChange={(val) => {

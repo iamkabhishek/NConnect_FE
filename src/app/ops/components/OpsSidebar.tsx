@@ -5,11 +5,8 @@ import {
   Building2, 
   CreditCard, 
   Tag, 
-  ShieldCheck, 
   User, 
   Network, 
-  Cpu, 
-  Radio,
   FileText,
   Terminal,
   BellRing,
@@ -43,7 +40,7 @@ export default function OpsSidebar({ activeTab, setActiveTab, activeOperator }: 
     {
       title: "Platform Operations",
       items: [
-        { id: 4, label: "Demo Scheduling", icon: CalendarDays },
+        { id: 4, label: "Demo Management", icon: CalendarDays },
         { id: 5, label: "CMS Policy Manager", icon: FileText },
         { id: 6, label: "Security & Keys", icon: Terminal },
         { id: 7, label: "Notification Workflows", icon: BellRing },
@@ -100,62 +97,6 @@ export default function OpsSidebar({ activeTab, setActiveTab, activeOperator }: 
           </div>
         ))}
       </div>
-
-      {/* System Pulse Panel */}
-      <div className="px-6 py-4 border-t border-zinc-200/40 bg-zinc-50/40 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[11px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Relay Host Status</span>
-        </div>
-        <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-          HEALTHY
-        </span>
-      </div>
-
-      {/* Footer Active Operator Card */}
-      <div 
-        onClick={() => setActiveTab(0)}
-        className="p-4 border-t border-zinc-200/60 bg-white hover:bg-zinc-50/80 transition-all duration-200 cursor-pointer flex items-center gap-3"
-      >
-        <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center font-bold text-white text-sm border-2 border-white shadow-md">
-            {activeOperator.name.charAt(0)}
-          </div>
-          <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-[12px] font-bold text-zinc-900 truncate">{activeOperator.name}</h4>
-          <p className="text-[10px] font-mono font-bold text-zinc-400 truncate uppercase tracking-tight">{activeOperator.accessLevel.split(' - ')[0]}</p>
-        </div>
-        <div className="w-6 h-6 rounded-lg bg-zinc-100 flex items-center justify-center hover:bg-zinc-200 transition-all">
-          <ChevronRight className="w-4 h-4 text-zinc-400" />
-        </div>
-      </div>
     </aside>
-  );
-}
-
-interface ChevronRightProps {
-  className?: string;
-}
-function ChevronRight({ className }: ChevronRightProps) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2.5" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="m9 18 6-6-6-6"/>
-    </svg>
   );
 }

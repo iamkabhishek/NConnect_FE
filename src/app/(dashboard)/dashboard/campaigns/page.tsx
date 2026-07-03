@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { CampaignsPage } from '@/app/components/campaigns/CampaignsPage';
+import { resolveRoute } from '@/app/components/ui/utils';
 
 export default function CampaignsPageRoute() {
   const router = useRouter();
@@ -19,8 +20,7 @@ export default function CampaignsPageRoute() {
   };
 
   const handleNavigate = (page: string) => {
-    if (page === 'dashboard') router.push('/dashboard');
-    else if (page === 'templates') router.push('/dashboard/templates');
+    router.push(resolveRoute(page));
   };
 
   return (
