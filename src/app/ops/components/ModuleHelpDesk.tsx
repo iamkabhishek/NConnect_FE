@@ -79,7 +79,7 @@ export default function ModuleHelpDesk() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'closed'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [dateFilter, setDateFilter] = useState<string>('');
   const [viewMode, setViewMode] = useState<'list' | 'chat'>('list');
   
   // Real DB backed state arrays
