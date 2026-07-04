@@ -33,7 +33,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  LayoutList,
+  MessagesSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_URL } from '@/app/lib/api';
@@ -64,11 +66,22 @@ interface SupportTicket {
     id: string;
     name: string;
     slug: string;
-    email: string;
-    brandName?: string;
+    brandName: string | null;
+    customId: string | null;
     subscriptionStatus: string;
     planId: string;
-  } | null;
+  };
+  agencyContext?: {
+    id: string;
+    name: string;
+    brandName: string | null;
+    customId: string | null;
+  };
+  userContext?: {
+    id: string;
+    name: string | null;
+    customId: string | null;
+  };
 }
 
 interface TicketReply {
@@ -422,6 +435,7 @@ export default function ModuleHelpDesk() {
       return {
         type: 'guest' as const,
         name: 'No Active Ticket',
+        orgName: 'N/A',
         slug: 'n-a',
         email: 'N/A',
         licenseLevel: 'N/A',
@@ -435,17 +449,27 @@ export default function ModuleHelpDesk() {
     // Use real tenant data if available
     if (ticket.tenantContext) {
       const tc = ticket.tenantContext;
+      const ac = ticket.agencyContext;
+      const uc = ticket.userContext;
+      
+      // Determine the "Company" name: Agency Brand > Agency Name > Workspace Brand > Workspace Name
+      const companyName = ac?.brandName || ac?.name || tc.brandName || tc.name;
+      
       return {
         type: 'tenant' as const,
         name: tc.name, // This is the workspace name
-        orgName: tc.brandName || tc.name, // This is the organization name
-        brandName: tc.brandName,
+        orgName: companyName, // This is the overarching company name
+        brandName: companyName,
         slug: tc.slug,
+        tenantCustomId: ac?.customId || tc.customId, // Prioritize Agency Custom ID
+        userId: uc?.id,
+        userName: uc?.name || ticket.name, // Use registered name or fallback to ticket name
+        userCustomId: uc?.customId,
         email: ticket.email,
         licenseLevel: tc.planId.toUpperCase().replace('_', ' ') || 'Standard',
         billingTerms: 'Active Subscription',
         paymentState: tc.subscriptionStatus.toUpperCase() === 'ACTIVE' ? 'PAID & CURRENT' : 'STATUS: ' + tc.subscriptionStatus.toUpperCase(),
-        emailAddress: tc.email || ticket.email,
+        emailAddress: ticket.email,
         warning: ticket.priority === 'critical' ? '⚠️ CRITICAL PRIORITY: Rapid intervention required for this tenant.' : null
       };
     }
@@ -663,14 +687,14 @@ export default function ModuleHelpDesk() {
               className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-zinc-500 hover:text-zinc-800'}`}
               title="Table View"
             >
-              <FileCode className="w-4 h-4" />
+              <LayoutList className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setViewMode('chat')}
               className={`p-1.5 rounded-lg transition-all ${viewMode === 'chat' ? 'bg-white shadow-sm text-indigo-600' : 'text-zinc-500 hover:text-zinc-800'}`}
               title="Chat View"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessagesSquare className="w-4 h-4" />
             </button>
           </div>
 
@@ -722,7 +746,7 @@ export default function ModuleHelpDesk() {
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400 pointer-events-none z-10" />
           <input 
             type="text"
-            placeholder="Search Subject, Client, Email..."
+            placeholder="Search Workspace, Agency, Subject, Email, Ticket ID..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="relative w-full pl-14 pr-6 py-4.5 border-2 border-zinc-100 bg-white text-zinc-800 rounded-3xl text-[13px] font-mono font-bold uppercase tracking-widest focus:outline-none focus:border-indigo-600 shadow-xl shadow-zinc-200/50 transition-all focus:ring-8 focus:ring-indigo-50/50 placeholder:text-zinc-300 z-10"
@@ -1068,14 +1092,14 @@ export default function ModuleHelpDesk() {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-0.5 text-[10px] font-extrabold text-zinc-400 uppercase font-mono tracking-tight">
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-indigo-500" />
-                        Client: {selectedTicket.name} ({selectedTicket.email})
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                        Agency: {selectedTicket.tenantContext?.brandName || selectedTicket.tenantContext?.name || 'Unregistered Guest'}
+                        Client: {selectedTicket.userContext?.name || selectedTicket.name} ({selectedTicket.email})
                       </span>
                       <span className="flex items-center gap-1.5 border-l border-zinc-200 pl-4 ml-1">
                         Key: {selectedTicket.ticketCode}
+                      </span>
+                      <span className="flex items-center gap-1.5 border-l border-zinc-200 pl-4 ml-1">
+                        <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                        Query Date: {new Date(selectedTicket.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -1420,10 +1444,10 @@ export default function ModuleHelpDesk() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs sm:text-[13.5px] font-black text-zinc-950 truncate leading-snug">
-                      {context.orgName || context.name}
+                      {context.brandName || context.orgName || 'N/A'}
                     </h4>
-                    <p className="text-[10px] text-zinc-400 font-mono font-semibold lowercase tracking-tight mt-0.5">
-                      {context.type === 'guest' ? 'guest or unregistered' : `slug: ${context.slug}`}
+                    <p className="text-[10px] text-zinc-500 font-mono font-bold uppercase tracking-tight mt-0.5">
+                      Workspace: {context.name}
                     </p>
                   </div>
                 </div>
@@ -1432,6 +1456,32 @@ export default function ModuleHelpDesk() {
                 <div className="space-y-2">
 
 
+
+                  {/* USER NAME */}
+                  {(context as any).userName && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                      <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                        <User className="w-4 h-4 text-zinc-400 shrink-0" />
+                        User Name
+                      </div>
+                      <span className="text-zinc-800 font-bold text-[10.5px]">
+                        {(context as any).userName}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* USER CUSTOM ID */}
+                  {(context as any).userCustomId && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                      <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                        <InboxIcon className="w-4 h-4 text-zinc-400 shrink-0" />
+                        User ID
+                      </div>
+                      <span className="text-zinc-800 font-mono font-bold text-[10.5px]">
+                        {(context as any).userCustomId}
+                      </span>
+                    </div>
+                  )}
 
                   {/* BILLING TERMS */}
                   <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
@@ -1463,14 +1513,14 @@ export default function ModuleHelpDesk() {
                   </div>
 
                   {/* EMAIL ADDRESS */}
-                  <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                  <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
                     <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
                       <Mail className="w-4 h-4 text-zinc-400 shrink-0" />
-                      Email Address
+                      Full Email Address
                     </div>
                     <a 
                       href={`mailto:${context.emailAddress}`} 
-                      className="text-indigo-600 hover:text-indigo-700 font-extrabold text-[10.5px] hover:underline truncate max-w-[140px]"
+                      className="text-indigo-600 hover:text-indigo-700 font-extrabold text-[10.5px] hover:underline break-all"
                     >
                       {context.emailAddress}
                     </a>

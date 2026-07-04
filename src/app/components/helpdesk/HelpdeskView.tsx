@@ -633,7 +633,7 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <span className={`font-bold text-[11px] ${isClient ? 'text-indigo-600' : 'text-zinc-800'}`}>
-                            {msg.senderName}
+                            {isClient ? msg.senderName : 'Support Agent'}
                           </span>
                           {!isClient && msg.isEmail && (
                             <span className="text-[8px] font-mono font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-emerald-100/40 ml-1">

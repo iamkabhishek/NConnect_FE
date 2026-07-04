@@ -144,21 +144,21 @@ export async function completeOnboarding(
 }
 
 /**
- * Updates the user's name or avatar profile in the database.
+ * Updates the user's name, avatar, or agency name in the database.
  */
-export async function updateProfile(token: string, name: string): Promise<any> {
+export async function updateProfile(token: string, name?: string, orgName?: string): Promise<any> {
   const response = await fetch(`${API_URL}/api/v1/users/profile`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, orgName }),
   });
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || 'Failed to update user profile name.');
+    throw new Error(data.error || 'Failed to update user profile.');
   }
 
   return data;

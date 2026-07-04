@@ -412,7 +412,8 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
         : profileSettings.fullName;
 
       if (token && computedFullName) {
-        const agencyName = onboardingData?.personal?.company;
+        // Prioritize agency name from the agency details tab
+        const agencyName = onboardingData?.agency?.name || onboardingData?.personal?.company;
         await updateProfile(token, computedFullName, agencyName);
       }
 
