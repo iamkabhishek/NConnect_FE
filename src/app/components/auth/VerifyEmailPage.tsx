@@ -13,7 +13,7 @@ interface VerifyEmailPageProps {
 }
 
 export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: VerifyEmailPageProps) {
-  const { setCurrentUser } = useWorkspace();
+  const { setCurrentUser, setSelectedWorkspace } = useWorkspace();
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -83,14 +83,14 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
       // 4. Update global context persona state
       setCurrentUser({
         id: me.userId,
-        name: email.split('@')[0], // fallback display name
+        name: me.name || email.split('@')[0],
         email: email,
         role: (me.role as any) || 'owner',
         onboarded: !me.needsOnboarding,
         avatar: email.substring(0, 2).toUpperCase(),
-        // Store sequential custom identifiers returned by backend Hono middleware
         customUserId: me.customUserId,
         customTenantId: me.customTenantId,
+        tenantId: me.tenantId,
         permissions: {
           contacts: 'admin',
           campaigns: 'admin',
@@ -104,6 +104,17 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
           media: 'admin',
         }
       });
+
+      if (me.tenantId) {
+        setSelectedWorkspace({
+          id: me.tenantId,
+          name: me.name || 'My Workspace',
+          color: me.brandColor || '#4A90E2',
+          description: me.description || '',
+          createdAt: new Date().toISOString(),
+          memberCount: 1
+        });
+      }
 
       setIsLoading(false);
       onVerifySuccess(me.needsOnboarding);

@@ -121,7 +121,10 @@ export async function getMe(token?: string): Promise<UserMeResponse> {
 export async function completeOnboarding(
   token: string,
   workspaceName: string,
-  purpose?: string
+  orgName: string,
+  purpose?: string,
+  description?: string,
+  color?: string
 ): Promise<CompleteOnboardingResponse> {
   const response = await fetch(`${API_URL}/api/v1/onboarding/complete`, {
     method: 'POST',
@@ -129,7 +132,7 @@ export async function completeOnboarding(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
-    body: JSON.stringify({ workspaceName, purpose }),
+    body: JSON.stringify({ workspaceName, orgName, purpose, description, color }),
   });
 
   const data = await response.json();

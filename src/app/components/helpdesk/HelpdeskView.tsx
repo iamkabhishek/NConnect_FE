@@ -93,7 +93,7 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
   // Forms States
   const [subject, setSubject] = useState('');
   const [category, setCategory] = useState<'questions' | 'billing' | 'technical'>('questions');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('low');
   const [description, setDescription] = useState('');
   
   // Chat Reply State
@@ -473,7 +473,7 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wider">Category Select</label>
                   <select 
@@ -485,29 +485,6 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
                     <option value="billing">Billing & Receipts</option>
                     <option value="technical">Technical Support</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wider">Priority Urgency</label>
-                  <div className="flex gap-1 mt-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60 shadow-inner">
-                    {(['low', 'medium', 'high', 'critical'] as const).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPriority(p)}
-                        className={`flex-1 text-[9px] py-1.5 rounded-lg font-bold font-mono transition-all border ${
-                          priority === p
-                            ? p === 'critical' ? 'bg-red-50 text-red-600 border-red-200 shadow-sm' :
-                              p === 'high' ? 'bg-orange-50 text-orange-600 border-orange-200 shadow-sm' :
-                              p === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200 shadow-sm' :
-                              'bg-zinc-50 text-zinc-600 border-zinc-200 shadow-sm'
-                            : 'border-transparent text-zinc-400 hover:text-zinc-700'
-                        }`}
-                      >
-                        {p.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 

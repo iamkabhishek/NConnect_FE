@@ -168,7 +168,7 @@ import { useEffect } from 'react';
 
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>(defaultWorkspaces);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace>(defaultWorkspaces[0]);
+  const [selectedWorkspace, setSelectedWorkspaceInternal] = useState<Workspace>(defaultWorkspaces[0]);
   const [currentUser, setCurrentUserInternal] = useState<UserPersona>(availablePersonas[0]); // default to John Doe (Owner)
   const [customPersonas, setCustomPersonas] = useState<UserPersona[]>([]);
 
@@ -180,6 +180,14 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
         setCurrentUserInternal(JSON.parse(savedUser));
       } catch (e) {
         console.error('Failed to parse nconnect_current_user', e);
+      }
+    }
+    const savedWorkspace = localStorage.getItem('nconnect_selected_workspace');
+    if (savedWorkspace) {
+      try {
+        setSelectedWorkspaceInternal(JSON.parse(savedWorkspace));
+      } catch (e) {
+        console.error('Failed to parse nconnect_selected_workspace', e);
       }
     }
     const savedCustomPersonas = localStorage.getItem('nconnect_custom_personas');
@@ -197,12 +205,17 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     if (user) {
       localStorage.setItem('nconnect_current_user', JSON.stringify(user));
     } else {
-      removeItem();
+      localStorage.removeItem('nconnect_current_user');
     }
   };
 
-  const removeItem = () => {
-    localStorage.removeItem('nconnect_current_user');
+  const setSelectedWorkspace = (workspace: Workspace) => {
+    setSelectedWorkspaceInternal(workspace);
+    if (workspace) {
+      localStorage.setItem('nconnect_selected_workspace', JSON.stringify(workspace));
+    } else {
+      localStorage.removeItem('nconnect_selected_workspace');
+    }
   };
 
   const addWorkspace = (workspace: Workspace) => {

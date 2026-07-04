@@ -20,7 +20,6 @@ interface OnboardingStep2Props {
 export interface PersonalInfoData {
   firstName: string;
   lastName: string;
-  company: string;
   role: string;
   phone: string;
 }
@@ -39,7 +38,6 @@ export function OnboardingStep2Personal({ onNext, onBack, initialData }: Onboard
     initialData || {
       firstName: '',
       lastName: '',
-      company: '',
       role: '',
       phone: '',
     }
@@ -141,21 +139,6 @@ export function OnboardingStep2Personal({ onNext, onBack, initialData }: Onboard
             {errors.lastName && (
               <p className="text-sm text-red-600 mt-1">{errors.lastName}</p>
             )}
-          </div>
-
-          {/* Company/Organization */}
-          <div>
-            <Label htmlFor="company" className="text-sm font-semibold text-gray-900">
-              Company/Organization <span className="text-gray-500 text-xs">(Optional)</span>
-            </Label>
-            <Input
-              id="company"
-              type="text"
-              placeholder="Acme Inc"
-              className="mt-2 h-12"
-              value={formData.company}
-              onChange={(e) => updateField('company', e.target.value)}
-            />
           </div>
 
           {/* Role */}

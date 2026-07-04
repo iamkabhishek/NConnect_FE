@@ -161,11 +161,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       }
 
       // 1. Submit workspace details to the API
-      const workspaceName = onboardingData.workspace?.name || onboardingData.agency?.name || 'My Workspace';
+      const workspaceName = onboardingData.workspace?.name || 'My Workspace';
+      const orgName = onboardingData.agency?.name || workspaceName;
       const completeResult = await completeOnboarding(
         idToken,
         workspaceName,
-        onboardingData.useCase?.purpose || onboardingData.useCase?.details || 'Workspace Onboarding'
+        orgName,
+        onboardingData.useCase?.purpose || onboardingData.useCase?.details || 'Workspace Onboarding',
+        onboardingData.workspace?.description,
+        onboardingData.workspace?.color
       );
 
       // 2. Trigger Cognito Refresh to stamp custom:tenantId claim

@@ -94,6 +94,8 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   // Workspace Settings State
   const [workspaceSettings, setWorkspaceSettings] = useState({
     name: selectedWorkspace?.name || 'My Workspace',
+    description: selectedWorkspace?.description || '',
+    color: selectedWorkspace?.color || '#4A90E2',
     timezone: 'America/New_York',
     defaultFromName: 'NConnect',
     defaultFromEmail: 'hello@nconnect.com',
@@ -108,6 +110,22 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
 
   const [profileSubTab, setProfileSubTab] = useState<'personal' | 'agency' | 'workspace' | 'plan' | 'useCase'>('personal');
   const [onboardingData, setOnboardingData] = useState<any>(null);
+
+  // Keep onboardingData.workspace in sync with selectedWorkspace
+  useEffect(() => {
+    if (selectedWorkspace && onboardingData?.workspace) {
+      setOnboardingData((prev: any) => ({
+        ...prev,
+        workspace: {
+          ...prev.workspace,
+          name: selectedWorkspace.name,
+          identifier: selectedWorkspace.id,
+          description: selectedWorkspace.description || '',
+          color: selectedWorkspace.color || '#4A90E2',
+        }
+      }));
+    }
+  }, [selectedWorkspace]);
 
   // Load onboarding details on mount or user/workspace context switch
   useEffect(() => {
@@ -208,6 +226,8 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
       setWorkspaceSettings((prev) => ({
         ...prev,
         name: selectedWorkspace.name,
+        description: selectedWorkspace.description || '',
+        color: selectedWorkspace.color || '#4A90E2',
       }));
     }
   }, [selectedWorkspace]);
@@ -249,7 +269,25 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                   ...currentUser,
                   name: result.user.name || currentUser.name,
                   email: result.user.email || currentUser.email,
+                  customUserId: result.user.customId || currentUser.customUserId,
+                  customAgencyId: result.user.customAgencyId || currentUser.customAgencyId,
                 });
+              }
+
+              // Sync onboardingData with agency info from backend
+              if (onboardingData) {
+                setOnboardingData((prev: any) => ({
+                  ...prev,
+                  agency: {
+                    ...prev.agency,
+                    name: result.user.agencyName || prev.agency.name,
+                    identifier: result.user.customAgencyId || prev.agency.identifier,
+                  },
+                  personal: {
+                    ...prev.personal,
+                    company: result.user.agencyName || prev.personal.company,
+                  }
+                }));
               }
             }
           }
@@ -338,8 +376,26 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
   const handleSaveWorkspace = () => {
     console.log('Saving workspace settings:', workspaceSettings);
     if (selectedWorkspace) {
-      const updatedWorkspace = { ...selectedWorkspace, name: workspaceSettings.name };
+      const updatedWorkspace = { 
+        ...selectedWorkspace, 
+        name: workspaceSettings.name,
+        description: workspaceSettings.description,
+        color: workspaceSettings.color
+      };
       setSelectedWorkspace(updatedWorkspace);
+      
+      // Also update onboardingData if it exists
+      if (onboardingData) {
+        const updatedOnboarding = { ...onboardingData };
+        if (updatedOnboarding.workspace) {
+          updatedOnboarding.workspace.name = workspaceSettings.name;
+          updatedOnboarding.workspace.description = workspaceSettings.description;
+          updatedOnboarding.workspace.color = workspaceSettings.color;
+          setOnboardingData(updatedOnboarding);
+          localStorage.setItem('nconnect_onboarding_data', JSON.stringify(updatedOnboarding));
+        }
+      }
+      
       toast.success('Workspace settings updated successfully!');
     }
   };
@@ -552,6 +608,51 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                       </p>
                     </div>
 
+                    {/* Workspace Description */}
+                    <div className="space-y-2">
+                      <Label htmlFor="mainWorkspaceDesc">Workspace Description</Label>
+                      <Textarea
+                        id="mainWorkspaceDesc"
+                        value={workspaceSettings.description}
+                        onChange={(e) =>
+                          setWorkspaceSettings({ ...workspaceSettings, description: e.target.value })
+                        }
+                        placeholder="A short description of your workspace..."
+                        className="resize-none"
+                        rows={3}
+                      />
+                      <p className="text-xs text-gray-500">
+                        Describe the purpose of this workspace for your team.
+                      </p>
+                    </div>
+
+                    {/* Branding Color */}
+                    <div className="space-y-2">
+                      <Label htmlFor="mainWorkspaceColor">Branding Color</Label>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          id="mainWorkspaceColor"
+                          type="color"
+                          value={workspaceSettings.color}
+                          onChange={(e) =>
+                            setWorkspaceSettings({ ...workspaceSettings, color: e.target.value })
+                          }
+                          className="w-12 h-10 p-1 rounded-md cursor-pointer"
+                        />
+                        <Input
+                          value={workspaceSettings.color}
+                          onChange={(e) =>
+                            setWorkspaceSettings({ ...workspaceSettings, color: e.target.value })
+                          }
+                          placeholder="#4A90E2"
+                          className="flex-1 font-mono"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        This color will be used for your workspace icon and accent elements.
+                      </p>
+                    </div>
+
                     {/* Workspace Logo */}
                     <div className="space-y-2">
                       <Label>Workspace Logo</Label>
@@ -738,7 +839,15 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                     {/* Personal Sub-tab */}
                     {profileSubTab === 'personal' && onboardingData?.personal && (
                       <div className="space-y-4 animate-fadeIn">
-                        <h3 className="font-semibold text-gray-900 text-base">Personal Information</h3>
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-gray-900 text-base">Personal Information</h3>
+                          {currentUser?.customUserId && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-zinc-100 rounded-full border border-zinc-200">
+                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">User ID</span>
+                              <code className="text-xs font-mono font-bold text-zinc-900">{currentUser.customUserId}</code>
+                            </div>
+                          )}
+                        </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -837,7 +946,15 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                     {/* Agency Sub-tab */}
                     {profileSubTab === 'agency' && onboardingData?.agency && (
                       <div className="space-y-6 animate-fadeIn">
-                        <h3 className="font-semibold text-gray-900 text-base">Agency & Corporate Registration Details</h3>
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-gray-900 text-base">Agency & Corporate Registration Details</h3>
+                          {currentUser?.customTenantId?.startsWith('AGY') && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-100">
+                              <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">Agency ID</span>
+                              <code className="text-xs font-mono font-bold text-blue-700">{currentUser.customTenantId}</code>
+                            </div>
+                          )}
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -1118,7 +1235,15 @@ export function SettingsPage({ onNavigate }: SettingsPageProps) {
                     {/* Workspace Sub-tab */}
                     {profileSubTab === 'workspace' && onboardingData?.workspace && (
                       <div className="space-y-4 animate-fadeIn">
-                        <h3 className="font-semibold text-gray-900 text-base">Workspace branding & Configuration</h3>
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-semibold text-gray-900 text-base">Workspace branding & Configuration</h3>
+                          {currentUser?.customTenantId && (
+                            <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 rounded-full border border-purple-100">
+                              <span className="text-[10px] font-bold text-purple-500 uppercase tracking-tight">Workspace ID</span>
+                              <code className="text-xs font-mono font-bold text-purple-700">{currentUser.customTenantId}</code>
+                            </div>
+                          )}
+                        </div>
                         
                         <div className="space-y-2">
                           <Label htmlFor="workspaceName">Workspace Name</Label>
