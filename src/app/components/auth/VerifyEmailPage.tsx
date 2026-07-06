@@ -108,7 +108,7 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
       if (me.tenantId) {
         setSelectedWorkspace({
           id: me.tenantId,
-          name: me.name || 'My Workspace',
+          name: me.workspaceName || 'My Workspace',
           color: me.brandColor || '#4A90E2',
           description: me.description || '',
           createdAt: new Date().toISOString(),

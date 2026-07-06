@@ -350,11 +350,12 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
             category,
             priority,
             message: messageBody,
+            workspaceId: currentUser?.customTenantId || currentUser?.tenantId || '',
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to dispatch ticket.');
+          throw new Error(data.error || 'Failed to dispatch ticket. Your account may not be associated with a workspace.');
         }
 
         const newTicket = data.ticket;

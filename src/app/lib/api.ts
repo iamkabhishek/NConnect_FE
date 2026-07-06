@@ -41,6 +41,8 @@ export interface UserMeResponse {
   status: string | null;
   role: string | null;
   permissions: string[];
+  name: string | null;
+  workspaceName: string | null;
   needsOnboarding: boolean;
 }
 
