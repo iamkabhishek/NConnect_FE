@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 
@@ -9,12 +9,14 @@ interface OnboardingSuccessProps {
 
 export function OnboardingSuccess({ workspaceName, onContinue }: OnboardingSuccessProps) {
   const [countdown, setCountdown] = useState(5);
+  const hasCalled = useRef(false);
 
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else {
+    } else if (!hasCalled.current) {
+      hasCalled.current = true;
       onContinue();
     }
   }, [countdown, onContinue]);

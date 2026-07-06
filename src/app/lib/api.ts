@@ -126,7 +126,9 @@ export async function completeOnboarding(
   orgName: string,
   purpose?: string,
   description?: string,
-  color?: string
+  color?: string,
+  firstName?: string,
+  lastName?: string
 ): Promise<CompleteOnboardingResponse> {
   const response = await fetch(`${API_URL}/api/v1/onboarding/complete`, {
     method: 'POST',
@@ -134,7 +136,7 @@ export async function completeOnboarding(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
     },
-    body: JSON.stringify({ workspaceName, orgName, purpose, description, color }),
+    body: JSON.stringify({ workspaceName, orgName, purpose, description, color, firstName, lastName }),
   });
 
   const data = await response.json();

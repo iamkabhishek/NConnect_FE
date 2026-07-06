@@ -169,7 +169,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         orgName,
         onboardingData.useCase?.purpose || onboardingData.useCase?.details || 'Workspace Onboarding',
         onboardingData.workspace?.description,
-        onboardingData.workspace?.color
+        onboardingData.workspace?.color,
+        onboardingData.personal?.firstName,
+        onboardingData.personal?.lastName
       );
 
       // 2. Trigger Cognito Refresh to stamp custom:tenantId claim
