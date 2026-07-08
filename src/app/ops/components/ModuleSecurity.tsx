@@ -56,6 +56,14 @@ interface OutboundWebhook {
 
 export default function ModuleSecurity() {
   const [activeSubTab, setActiveSubTab] = useState<'keys' | 'webhooks' | 'audit'>('audit');
+  
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
   const [searchTerm, setSearchTerm] = useState('');
   
   // API Keys state
@@ -312,7 +320,7 @@ export default function ModuleSecurity() {
                     </div>
 
                     <div className="flex items-center justify-between pt-3 border-t border-zinc-100 text-[10px] text-zinc-400 font-semibold font-mono">
-                      <span>Created: {new Date(key.createdAt).toLocaleDateString()}</span>
+                      <span>Created: {formatDate(key.createdAt)}</span>
                       {!isRevoked && (
                         <button
                           onClick={() => handleRevokeKey(key.id)}
@@ -397,7 +405,7 @@ export default function ModuleSecurity() {
                     </div>
 
                     <div className="flex items-center justify-between pt-3 border-t border-zinc-100 text-[10px] text-zinc-400 font-semibold font-mono">
-                      <span>Created: {new Date(wh.createdAt).toLocaleDateString()}</span>
+                      <span>Created: {formatDate(wh.createdAt)}</span>
                       {wh.isActive && (
                         <button
                           onClick={() => handleTriggerWebhookTest(wh)}

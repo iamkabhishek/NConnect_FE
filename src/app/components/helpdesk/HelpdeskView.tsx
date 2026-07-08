@@ -62,7 +62,7 @@ interface Ticket {
   workspaceId: string;
   subject: string;
   category: 'questions' | 'billing' | 'technical';
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: 'low' | 'medium' | 'high' | 'critical' | null;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   createdAt: string;
   updatedAt: string;
@@ -93,7 +93,7 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
   // Forms States
   const [subject, setSubject] = useState('');
   const [category, setCategory] = useState<'questions' | 'billing' | 'technical'>('questions');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('low');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical' | null>(null);
   const [description, setDescription] = useState('');
   
   // Chat Reply State
@@ -119,6 +119,14 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
       }
     }
     return { text: rawMessage, attachments: [] };
+  };
+
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -642,7 +650,7 @@ export default function HelpdeskView({ embedMode = false }: { embedMode?: boolea
                             </span>
                           )}
                           <span className="text-[9px] text-zinc-400 font-mono ml-auto">
-                            {mounted ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {mounted ? `${formatDate(msg.createdAt)} | ${new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                           </span>
                         </div>
                         <p className="leading-relaxed whitespace-pre-wrap text-zinc-700 font-semibold">{text}</p>

@@ -55,7 +55,7 @@ interface SupportTicket {
   workspaceId: string;
   subject: string;
   category: 'billing' | 'technical' | 'questions';
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: 'low' | 'medium' | 'high' | 'critical' | null;
   status: 'new' | 'in_progress' | 'unresolved' | 'closed';
   email: string;
   name: string;
@@ -141,11 +141,12 @@ export default function ModuleHelpDesk() {
 
   // Operator Context State
   const [currentOperator, setCurrentOperator] = useState<{ name: string; email: string; identifier: string; userId: string }>({ 
-    name: 'NConnect Admin', 
-    email: 'ops-admin@test.com',
-    identifier: 'NConnect Admin - USER0000',
-    userId: 'USER0000'
+    name: 'Loading...', 
+    email: '', 
+    identifier: '',
+    userId: ''
   });
+  const [agents, setAgents] = useState<{id: string, name: string, email: string, customId: string | null, avatarUrl: string | null}[]>([]);
 
   useEffect(() => {
     const loadOperatorContext = async () => {
@@ -189,10 +190,25 @@ export default function ModuleHelpDesk() {
     };
 
     loadOperatorContext();
+
+    const fetchAgents = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/agents`, {
+          headers: getAuthHeaders(),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setAgents(data.agents);
+        }
+      } catch (err) {
+        console.error('Failed to fetch agents:', err);
+      }
+    };
+    fetchAgents();
   }, []);
 
    const selectedTicket = tickets.find(t => t.id === selectedTicketId);
-   const isAssignedToMe = selectedTicket?.assignedTo === currentOperator.identifier;
+   const isAssignedToMe = selectedTicket?.assignedTo === currentOperator.email || (selectedTicket?.assignedTo && currentOperator.identifier.includes(selectedTicket.assignedTo));
    const isUnassigned = !selectedTicket?.assignedTo;
    const isFinalized = selectedTicket?.status === 'unresolved' || selectedTicket?.status === 'closed';
 
@@ -269,6 +285,14 @@ export default function ModuleHelpDesk() {
       }
     }
     return { text: rawMessage, attachments: [] };
+  };
+
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -458,10 +482,11 @@ export default function ModuleHelpDesk() {
       return {
         type: 'tenant' as const,
         name: tc.name, // This is the workspace name
+        workspaceId: tc.id, // Explicitly include Workspace ID
         orgName: companyName, // This is the overarching company name
         brandName: companyName,
         slug: tc.slug,
-        tenantCustomId: ac?.customId || tc.customId, // Prioritize Agency Custom ID
+        tenantCustomId: tc.customId, // Use Workspace Custom ID exclusively
         userId: uc?.id,
         userName: uc?.name || ticket.name, // Use registered name or fallback to ticket name
         userCustomId: uc?.customId,
@@ -544,17 +569,14 @@ export default function ModuleHelpDesk() {
 
     try {
       const msgText = replyMessage.trim();
-      let finalMessage = msgText;
-      if (replyFiles.length > 0) {
-        finalMessage += `\n\n---ATTACHMENTS---\n${JSON.stringify(replyFiles)}`;
-      }
-
+      
       const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}/email`, {
         method: 'POST',
         headers: getAuthHeaders('application/json'),
         body: JSON.stringify({
-          message: finalMessage,
+          message: msgText,
           subject: emailSubject,
+          attachments: replyFiles,
         }),
       });
       const data = await res.json();
@@ -634,13 +656,13 @@ export default function ModuleHelpDesk() {
     }
   };
 
-  const handleAssignToMe = async () => {
+  const handleAssignToAgent = async (agentIdentifier: string) => {
     if (!selectedTicketId) return;
     try {
       const res = await fetch(`${API_URL}/api/v1/ops/helpdesk/tickets/${selectedTicketId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ assignedTo: currentOperator.identifier }),
+        body: JSON.stringify({ assignedTo: agentIdentifier }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -651,17 +673,19 @@ export default function ModuleHelpDesk() {
         if (t.id === selectedTicketId) {
           return { 
             ...t, 
-            assignedTo: currentOperator.identifier,
+            assignedTo: agentIdentifier,
             status: t.status === 'new' ? 'in_progress' : t.status 
           };
         }
         return t;
       }));
-      toast.success('Support ticket successfully assigned to your workspace session.');
+      toast.success(`Ticket successfully assigned to ${agentIdentifier}.`);
     } catch (err: any) {
       toast.error(err.message || 'Assignment failed.');
     }
   };
+
+  const handleAssignToMe = () => handleAssignToAgent(currentOperator.email);
 
   const handleBypassSecurity = () => {
     toast.success('Cognito registration handshake manual override injected! Invitation link re-sent to: ' + context.email);
@@ -834,13 +858,7 @@ export default function ModuleHelpDesk() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-[11px] font-mono font-bold text-zinc-900">
-                            {(() => {
-                              const d = new Date(t.createdAt);
-                              const day = String(d.getDate()).padStart(2, '0');
-                              const month = String(d.getMonth() + 1).padStart(2, '0');
-                              const year = d.getFullYear();
-                              return `${day}-${month}-${year}`;
-                            })()}
+                            {formatDate(t.createdAt)}
                           </span>
                           <span className="text-[9px] font-mono text-zinc-400 font-bold">
                             {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1002,7 +1020,8 @@ export default function ModuleHelpDesk() {
                     t.priority === 'critical' ? 'text-red-600 bg-red-50 border-red-200' :
                     t.priority === 'high' ? 'text-amber-600 bg-amber-50 border-amber-200' :
                     t.priority === 'medium' ? 'text-blue-600 bg-blue-50 border-blue-200' :
-                    'text-zinc-600 bg-zinc-50 border-zinc-200';
+                    t.priority === 'low' ? 'text-zinc-600 bg-zinc-50 border-zinc-200' :
+                    'text-zinc-400 bg-zinc-50 border-zinc-100';
 
                   return (
                     <div
@@ -1035,13 +1054,7 @@ export default function ModuleHelpDesk() {
                       <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-wider">
                         <span>{t.name}</span>
                         <span>
-                          {(() => {
-                            const d = new Date(t.createdAt);
-                            const day = String(d.getDate()).padStart(2, '0');
-                            const month = String(d.getMonth() + 1).padStart(2, '0');
-                            const year = d.getFullYear();
-                            return `${day}-${month}-${year}`;
-                          })()}
+                          {formatDate(t.createdAt)}
                         </span>
                       </div>
                     </div>
@@ -1099,39 +1112,72 @@ export default function ModuleHelpDesk() {
                       </span>
                       <span className="flex items-center gap-1.5 border-l border-zinc-200 pl-4 ml-1">
                         <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                        Query Date: {new Date(selectedTicket.createdAt).toLocaleDateString()}
+                        Query Date: {formatDate(selectedTicket.createdAt)}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {/* ASSIGNMENT STATUS / ACTION */}
-                    {isUnassigned ? (
-                      <button
-                        onClick={handleAssignToMe}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-widest rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95"
-                      >
-                        <User className="w-3.5 h-3.5" />
-                        Assign to Me
-                      </button>
-                    ) : (
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest ${
-                        isAssignedToMe 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
-                          : 'bg-amber-50 border-amber-200 text-amber-700'
-                      }`}>
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        {isAssignedToMe ? `Assigned to: ${currentOperator.identifier}` : `Assigned to: ${selectedTicket.assignedTo}`}
-                        {!isAssignedToMe && (
-                          <button 
-                            onClick={handleAssignToMe}
-                            className="ml-1 hover:text-amber-900 underline decoration-amber-300 underline-offset-2"
-                          >
-                            Claim
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-md ${
+                            isUnassigned 
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200' 
+                              : isAssignedToMe 
+                                ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-emerald-100'
+                                : 'bg-amber-50 border border-amber-200 text-amber-700 shadow-amber-100'
+                          }`}
+                        >
+                          {isUnassigned ? (
+                            <>
+                              <User className="w-3.5 h-3.5" />
+                              Unassigned
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              {isAssignedToMe ? 'Assigned to Me' : `Assigned: ${selectedTicket.assignedTo?.split('@')[0]}`}
+                            </>
+                          )}
+                          <ChevronDown className="w-3 h-3 ml-0.5 opacity-50" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-zinc-200/60 shadow-2xl">
+                        <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-zinc-400 px-3 py-2">
+                          Assign Support Agent
+                        </DropdownMenuLabel>
+                          {agents.map((agent) => {
+                            const isMe = agent.email.toLowerCase() === currentOperator.email.toLowerCase();
+                            return (
+                              <DropdownMenuItem 
+                                key={agent.id}
+                                onClick={() => handleAssignToAgent(agent.email)}
+                                className={`rounded-xl flex items-center gap-2.5 px-3 py-2.5 cursor-pointer group ${isMe ? 'focus:bg-indigo-50' : 'focus:bg-zinc-50'}`}
+                              >
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[10px] transition-colors uppercase ${isMe ? 'bg-indigo-100 text-indigo-600 group-focus:bg-indigo-600 group-focus:text-white' : 'bg-zinc-100 text-zinc-500 group-focus:bg-zinc-200'}`}>
+                                  {isMe ? 'ME' : agent.name.slice(0, 2)}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className={`text-[11px] font-bold ${isMe ? 'text-zinc-800 group-focus:text-indigo-900' : 'text-zinc-800'}`}>
+                                    {agent.name} {isMe && '(Myself)'}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-400 font-mono">
+                                    {agent.customId || 'NO-ID'} • {agent.email}
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                          
+                          {agents.length === 0 && (
+                            <DropdownMenuItem disabled className="text-[9px] text-zinc-400 px-3 py-2">
+                              No other agents available
+                            </DropdownMenuItem>
+                          )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {/* Premium Status Switcher */}
                     <DropdownMenu>
@@ -1189,7 +1235,7 @@ export default function ModuleHelpDesk() {
                            selectedTicket.priority === 'high' ? <AlertCircle className="w-3 h-3" /> :
                            selectedTicket.priority === 'medium' ? <Zap className="w-3 h-3" /> :
                            <Clock className="w-3 h-3" />}
-                          {selectedTicket.priority}
+                          {selectedTicket.priority || '--'}
                           <ChevronDown className="w-3 h-3 opacity-50" />
                         </button>
                       </DropdownMenuTrigger>
@@ -1254,14 +1300,14 @@ export default function ModuleHelpDesk() {
                                 </span>
                               )}
                               {!isInternal && isSupport && r.isEmail && (
-                                <span className="text-[8px] font-mono font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-emerald-100/40">
-                                  reponded via email
+                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-tighter">
+                                  responded via email
                                 </span>
                               )}
                             </div>
                             <span className="text-[9px] font-mono text-zinc-400">
-                              {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                               {formatDate(r.createdAt)} | {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             </span>
                           </div>
 
                           <p className="text-zinc-700 font-semibold whitespace-pre-line leading-relaxed">
@@ -1331,6 +1377,21 @@ export default function ModuleHelpDesk() {
                     </div>
                   ) : (
                     <form onSubmit={handlePostReply} className="space-y-3">
+                      {!selectedTicket?.priority && isAssignedToMe && (
+                        <div className="bg-amber-50 border border-amber-200/60 p-3.5 rounded-2xl flex items-start gap-3 mb-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="mt-0.5 bg-amber-100 p-1.5 rounded-lg text-amber-600 shadow-sm">
+                            <Zap className="w-3.5 h-3.5 animate-pulse" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="text-[11px] font-black text-amber-800 font-mono uppercase tracking-tight">Triage Required</h5>
+                            <p className="text-[10px] text-amber-600 font-bold mt-0.5 leading-relaxed">
+                              This ticket has no urgency level assigned. Please select an 
+                              <span className="text-amber-700 font-black px-1.5 bg-amber-100/50 rounded-md mx-1 border border-amber-200/30 shadow-sm">Urgency Level</span> 
+                              from the header dropdown above to activate the chat and begin interacting.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       {/* Reply Files Preview */}
                       {replyFiles.length > 0 && (
                         <div className="flex flex-wrap gap-2 p-2.5 bg-zinc-50 rounded-xl border border-zinc-200/50">
@@ -1354,20 +1415,20 @@ export default function ModuleHelpDesk() {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            disabled={!isAssignedToMe}
+                            disabled={!isAssignedToMe || !selectedTicket.priority}
                             onClick={() => {
-                              setEmailSubject(`New Reply to Support Ticket ${selectedTicket?.ticketCode || 'TCK'}`);
+                              setEmailSubject(`${context.brandName || 'NConnect'} - Reply to Ticket ${selectedTicket?.ticketCode || 'TCK'}`);
                               setIsEmailPreviewOpen(true);
                             }}
                             className={`px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border flex items-center gap-1.5 ${
-                              !isAssignedToMe
+                              (!isAssignedToMe || !selectedTicket.priority)
                                 ? 'bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed opacity-60'
                                 : isEmailPreviewOpen
                                   ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-black'
                                   : 'bg-zinc-50 border-zinc-200/60 text-zinc-500 hover:text-zinc-800'
                             }`}
                           >
-                            repond via email
+                            respond via email
                           </button>
                         </div>
                       </div>
@@ -1390,15 +1451,15 @@ export default function ModuleHelpDesk() {
                         />
                         <input
                           type="text"
-                          placeholder={isAssignedToMe ? "Draft a reply to the customer client..." : "Assign ticket to yourself to reply..."}
-                          className={`flex-1 bg-zinc-50 border border-zinc-200 text-xs font-semibold px-4 py-3 rounded-xl focus:outline-none focus:border-indigo-500 hover:bg-zinc-100/30 transition-colors ${!isAssignedToMe ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          placeholder={!isAssignedToMe ? `Only assigned agent (${selectedTicket.assignedTo?.split('@')[0] || 'N/A'}) can reply...` : !selectedTicket.priority ? "Please set ticket urgency to start chatting..." : "Draft a reply to the customer client..."}
+                          className={`flex-1 bg-zinc-50 border border-zinc-200 text-xs font-semibold px-4 py-3 rounded-xl focus:outline-none focus:border-indigo-500 hover:bg-zinc-100/30 transition-colors ${(!isAssignedToMe || !selectedTicket.priority) ? 'opacity-50 cursor-not-allowed italic' : ''}`}
                           value={replyMessage}
-                          disabled={!isAssignedToMe}
+                          disabled={!isAssignedToMe || !selectedTicket.priority}
                           onChange={(e) => setReplyMessage(e.target.value)}
                         />
                         <button
                           type="submit"
-                          disabled={!isAssignedToMe || (!replyMessage.trim() && replyFiles.length === 0)}
+                          disabled={!isAssignedToMe || !selectedTicket.priority || (!replyMessage.trim() && replyFiles.length === 0)}
                           className="text-white font-extrabold text-xs p-3.5 rounded-xl transition-all shadow-md flex items-center justify-center border disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/15 border-indigo-500/20"
                         >
                           <Send className="w-4 h-4" />
@@ -1444,10 +1505,10 @@ export default function ModuleHelpDesk() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs sm:text-[13.5px] font-black text-zinc-950 truncate leading-snug">
-                      {context.brandName || context.orgName || 'N/A'}
+                      {context.brandName || 'N/A'}
                     </h4>
                     <p className="text-[10px] text-zinc-500 font-mono font-bold uppercase tracking-tight mt-0.5">
-                      Workspace: {context.name}
+                      WORKSPACE: {context.name}
                     </p>
                   </div>
                 </div>
@@ -1455,6 +1516,20 @@ export default function ModuleHelpDesk() {
                 {/* System details list as shown in the screenshot */}
                 <div className="space-y-2">
 
+
+
+                   {/* WORKSPACE ID (Custom) */}
+                   {(context as any).tenantCustomId && (
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                      <div className="flex items-center gap-2 text-zinc-400 font-bold uppercase tracking-wider text-[8.5px]">
+                        <Building2 className="w-4 h-4 text-zinc-400 shrink-0" />
+                        Workspace ID
+                      </div>
+                      <span className="text-zinc-800 font-mono font-bold text-[10.5px]">
+                        {(context as any).tenantCustomId}
+                      </span>
+                    </div>
+                  )}
 
 
                   {/* USER NAME */}
@@ -1643,6 +1718,16 @@ export default function ModuleHelpDesk() {
               </div>
 
               <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => replyFileInputRef.current?.click()}
+                  className="px-4 py-2.5 bg-zinc-100 text-zinc-600 rounded-xl text-xs font-black font-mono uppercase tracking-widest hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 border border-zinc-200"
+                  title="Add Attachments"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>Attach</span>
+                </button>
+
                 <button
                   onClick={handleConfirmSendEmail}
                   disabled={isSendingEmail}
