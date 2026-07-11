@@ -118,6 +118,9 @@ export default function ModuleProfile({ onProfileUpdate }: ModuleProfileProps) {
     if (profileData) {
       setProfile(profileData);
       onProfileUpdate(profileData);
+    } else {
+      // If no cache, sync the default initial profile name to the header
+      onProfileUpdate(profile);
     }
     if (orgData) setOrg(orgData);
     if (addressData) setAddress(addressData);

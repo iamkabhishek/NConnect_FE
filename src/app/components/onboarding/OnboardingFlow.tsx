@@ -22,7 +22,7 @@ export interface OnboardingData {
 }
 
 import { useWorkspace } from '@/app/contexts/WorkspaceContext';
-import { completeOnboarding, getStoredToken, refreshCognitoTokens, updateProfile } from '@/app/lib/api';
+import { onboardingStep1, onboardingStep2, onboardingStep3, getStoredToken, refreshCognitoTokens, updateProfile } from '@/app/lib/api';
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { currentUser, setCurrentUser } = useWorkspace();
@@ -89,6 +89,19 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           : p
       );
       localStorage.setItem('nconnect_custom_personas', JSON.stringify(updatedPersonas));
+      
+      // Also pre-populate the Ops Cockpit owner profile so the header is correct immediately
+      const opsProfile = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: currentUser.email,
+        designation: data.role || 'Owner',
+        phone: data.phone,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('nconnect_ops_owner_profile', JSON.stringify(opsProfile));
     }
   };
 
@@ -160,18 +173,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         throw new Error('Authentication token not found. Please log in again.');
       }
 
-      // 1. Submit workspace details to the API
+      // 1. Submit onboarding steps to the API
       const workspaceName = onboardingData.workspace?.name || 'My Workspace';
       const orgName = onboardingData.agency?.name || workspaceName;
-      const completeResult = await completeOnboarding(
+
+      await onboardingStep1(idToken, onboardingData.personal?.firstName || '', onboardingData.personal?.lastName || '');
+      await onboardingStep2(idToken, orgName);
+      const completeResult = await onboardingStep3(
         idToken,
         workspaceName,
-        orgName,
-        onboardingData.useCase?.purpose || onboardingData.useCase?.details || 'Workspace Onboarding',
-        onboardingData.workspace?.description,
         onboardingData.workspace?.color,
-        onboardingData.personal?.firstName,
-        onboardingData.personal?.lastName
+        onboardingData.workspace?.description
       );
 
       // 2. Trigger Cognito Refresh to stamp custom:tenantId claim

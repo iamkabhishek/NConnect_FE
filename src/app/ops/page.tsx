@@ -42,9 +42,25 @@ export default function OpsCockpitPage() {
   useEffect(() => {
     if (currentUser) {
       const isPowerUser = currentUser.role === 'owner' || currentUser.role === 'platform_admin';
+      
+      // Try to get the name from the cached profile first for the header
+      const cachedProfile = localStorage.getItem('nconnect_ops_owner_profile');
+      let displayName = currentUser.name;
+      
+      if (cachedProfile) {
+        try {
+          const profile = JSON.parse(cachedProfile);
+          if (profile.firstName && profile.lastName) {
+            displayName = `${profile.firstName} ${profile.lastName}`;
+          }
+        } catch (e) {
+          console.error('Failed to parse cached profile', e);
+        }
+      }
+
       setActiveOperator(prev => ({
         ...prev,
-        name: currentUser.name,
+        name: displayName,
         email: currentUser.email,
         accessLevel: isPowerUser ? 'L3 - Full' : 'L1 - Viewer'
       }));

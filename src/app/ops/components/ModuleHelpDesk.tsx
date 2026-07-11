@@ -51,8 +51,11 @@ import {
 interface SupportTicket {
   id: string;
   ticketCode: string;
-  tenantId: string | null;
   workspaceId: string;
+  tenantContext?: any;
+  agencyContext?: any;
+  userContext?: any;
+  userWorkspaceContext?: any;
   subject: string;
   category: 'billing' | 'technical' | 'questions';
   priority: 'low' | 'medium' | 'high' | 'critical' | null;
@@ -62,26 +65,6 @@ interface SupportTicket {
   assignedTo: string | null;
   createdAt: string;
   updatedAt: string;
-  tenantContext?: {
-    id: string;
-    name: string;
-    slug: string;
-    brandName: string | null;
-    customId: string | null;
-    subscriptionStatus: string;
-    planId: string;
-  };
-  agencyContext?: {
-    id: string;
-    name: string;
-    brandName: string | null;
-    customId: string | null;
-  };
-  userContext?: {
-    id: string;
-    name: string | null;
-    customId: string | null;
-  };
 }
 
 interface TicketReply {
@@ -176,13 +159,13 @@ export default function ModuleHelpDesk() {
         });
         const data = await res.json();
         
-        if (data.success !== false && data.customUserId) {
-          setCurrentOperator({
-            name,
-            email,
-            userId: data.customUserId,
-            identifier: `${name} - ${data.customUserId}`
-          });
+        if (data.success !== false && data.name) {
+          setCurrentOperator(prev => ({
+            ...prev,
+            name: data.name,
+            userId: data.customUserId || prev.userId,
+            identifier: `${data.name} - ${data.customUserId || prev.userId}`
+          }));
         }
       } catch (e) {
         console.error('Failed to load operator context:', e);
@@ -475,20 +458,29 @@ export default function ModuleHelpDesk() {
       const tc = ticket.tenantContext;
       const ac = ticket.agencyContext;
       const uc = ticket.userContext;
+      const uw = ticket.userWorkspaceContext;
       
-      // Determine the "Company" name: Agency Brand > Agency Name > Workspace Brand > Workspace Name
-      const companyName = ac?.brandName || ac?.name || tc.brandName || tc.name;
+      // Determine the "Company" name: Agency Brand > Agency Name
+      const agencyName = ac?.brandName || ac?.name || (tc.type === 'agency' ? (tc.brandName || tc.name) : null);
+      
+      // Determine the specific Workspace name: Primary Workspace > Resolved User Workspace > Tenant Name
+      const workspaceName = (tc.type === 'workspace') ? (tc.brandName || tc.name) : (uw?.brandName || uw?.name || tc.brandName || tc.name);
+      
+      // The Workspace ID should STRICTLY be a WSP id if possible (from userWorkspaceContext if ticket is at agency level)
+      const effectiveWorkspaceId = (tc.type === 'workspace') ? tc.customId : (uw?.customId || tc.customId);
       
       return {
         type: 'tenant' as const,
-        name: tc.name, // This is the workspace name
-        workspaceId: tc.id, // Explicitly include Workspace ID
-        orgName: companyName, // This is the overarching company name
-        brandName: companyName,
+        name: workspaceName, 
+        workspaceId: tc.id,
+        orgName: agencyName || workspaceName,
+        brandName: agencyName || workspaceName, // Agency as Primary Title
+        workspaceBrandName: workspaceName, // Workspace as Secondary Subtitle
         slug: tc.slug,
-        tenantCustomId: tc.customId, // Use Workspace Custom ID exclusively
+        tenantCustomId: uw?.customId || (tc.type === 'workspace' ? tc.customId : null), 
+        agencyCustomId: ac?.customId || (tc.type === 'agency' ? tc.customId : null),
         userId: uc?.id,
-        userName: uc?.name || ticket.name, // Use registered name or fallback to ticket name
+        userName: uc?.name || ticket.name,
         userCustomId: uc?.customId,
         email: ticket.email,
         licenseLevel: tc.planId.toUpperCase().replace('_', ' ') || 'Standard',
@@ -1508,13 +1500,14 @@ export default function ModuleHelpDesk() {
                       {context.brandName || 'N/A'}
                     </h4>
                     <p className="text-[10px] text-zinc-500 font-mono font-bold uppercase tracking-tight mt-0.5">
-                      WORKSPACE: {context.name}
+                      WORKSPACE: {context.workspaceBrandName || context.name}
                     </p>
                   </div>
                 </div>
 
                 {/* System details list as shown in the screenshot */}
                 <div className="space-y-2">
+
 
 
 

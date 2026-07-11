@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { getTenants, switchTenant, refreshCognitoTokens, getStoredToken, getMe } from '@/app/lib/api';
 
 export interface Workspace {
   id: string;
@@ -36,8 +37,8 @@ export interface UserPersona {
 }
 
 interface WorkspaceContextType {
-  selectedWorkspace: Workspace;
-  setSelectedWorkspace: (workspace: Workspace) => void;
+  selectedWorkspace: Workspace | null;
+  setSelectedWorkspace: (workspace: Workspace) => Promise<void>;
   workspaces: Workspace[];
   addWorkspace: (workspace: Workspace) => void;
   currentUser: UserPersona;
@@ -164,20 +165,81 @@ interface WorkspaceProviderProps {
   children: ReactNode;
 }
 
-import { useEffect } from 'react';
+
 
 export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(defaultWorkspaces);
-  const [selectedWorkspace, setSelectedWorkspaceInternal] = useState<Workspace>(defaultWorkspaces[0]);
-  const [currentUser, setCurrentUserInternal] = useState<UserPersona>(availablePersonas[0]); // default to John Doe (Owner)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [selectedWorkspace, setSelectedWorkspaceInternal] = useState<Workspace | null>(null);
+  const [currentUser, setCurrentUserInternal] = useState<UserPersona>(availablePersonas[0]); 
   const [customPersonas, setCustomPersonas] = useState<UserPersona[]>([]);
+
+  // Fetch workspaces on mount
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        const token = getStoredToken();
+        if (!token) return;
+        
+        const data = await getTenants(token);
+        const wsList = data.tenants
+          .filter((t: any) => t.type === 'workspace')
+          .map((t: any) => ({
+            id: t.tenantId,
+            name: t.name,
+            color: t.brandColor || '#8B5CF6',
+            description: t.description || '',
+            createdAt: t.joinedAt || new Date().toISOString(),
+            memberCount: 1, 
+          }));
+        
+        setWorkspaces(wsList);
+        
+        // Match selected workspace from localStorage or default to first
+        const savedWorkspace = localStorage.getItem('nconnect_selected_workspace');
+        if (savedWorkspace) {
+          const parsed = JSON.parse(savedWorkspace);
+          const found = wsList.find((w: any) => w.id === parsed.id);
+          if (found) {
+            setSelectedWorkspaceInternal(found);
+          } else if (wsList.length > 0) {
+            setSelectedWorkspaceInternal(wsList[0]);
+          }
+        } else if (wsList.length > 0) {
+          setSelectedWorkspaceInternal(wsList[0]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch workspaces:', err);
+      }
+    };
+    
+    fetchWorkspaces();
+  }, []);
 
   // Hydrate from localStorage on client-side mount
   useEffect(() => {
     const savedUser = localStorage.getItem('nconnect_current_user');
     if (savedUser) {
       try {
-        setCurrentUserInternal(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setCurrentUserInternal(parsed);
+        
+        // Background refresh to ensure the name is professional (sync with DB)
+        const refreshProfile = async () => {
+          try {
+            const token = getStoredToken();
+            if (token) {
+              const me = await getMe(token);
+              if (me.name && me.name !== parsed.name) {
+                const updatedUser = { ...parsed, name: me.name };
+                setCurrentUserInternal(updatedUser);
+                localStorage.setItem('nconnect_current_user', JSON.stringify(updatedUser));
+              }
+            }
+          } catch (e) {
+            console.error('Failed to background refresh profile:', e);
+          }
+        };
+        refreshProfile();
       } catch (e) {
         console.error('Failed to parse nconnect_current_user', e);
       }
@@ -209,10 +271,25 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
     }
   };
 
-  const setSelectedWorkspace = (workspace: Workspace) => {
+  const setSelectedWorkspace = async (workspace: Workspace) => {
     setSelectedWorkspaceInternal(workspace);
     if (workspace) {
       localStorage.setItem('nconnect_selected_workspace', JSON.stringify(workspace));
+      
+      try {
+        const token = getStoredToken();
+        const refreshToken = localStorage.getItem('nconnect_refresh_token');
+        if (token && refreshToken) {
+          await switchTenant(token, workspace.id);
+          const newTokens = await refreshCognitoTokens(refreshToken);
+          localStorage.setItem('nconnect_id_token', newTokens.token);
+          localStorage.setItem('nconnect_access_token', newTokens.accessToken);
+          // Reload to apply new tenant context
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('Failed to switch workspace on backend:', err);
+      }
     } else {
       localStorage.removeItem('nconnect_selected_workspace');
     }

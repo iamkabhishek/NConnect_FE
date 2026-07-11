@@ -42,6 +42,7 @@ export interface UserMeResponse {
   role: string | null;
   permissions: string[];
   name: string | null;
+  email: string | null;
   workspaceName: string | null;
   needsOnboarding: boolean;
 }
@@ -115,6 +116,21 @@ export async function getMe(token?: string): Promise<UserMeResponse> {
   }
 
   return data as UserMeResponse;
+}
+
+/**
+ * Compatibility wrapper for getMe that returns the legacy { user: { ... } } format.
+ */
+export async function getProfile(token?: string): Promise<{ user: Partial<UserMeResponse> }> {
+  const me = await getMe(token);
+  return {
+    user: {
+      name: me.name,
+      email: me.email,
+      customId: me.customUserId,
+      agencyName: me.workspaceName,
+    }
+  };
 }
 
 /**
@@ -208,21 +224,93 @@ export async function refreshCognitoTokens(refreshToken: string): Promise<Verify
 }
 
 /**
- * Fetches the user profile from /api/v1/users/profile
+ * Lists workspaces (tenants) the user belongs to.
  */
-export async function getProfile(token: string): Promise<any> {
-  const response = await fetch(`${API_URL}/api/v1/users/profile`, {
+export async function getTenants(token?: string): Promise<{ tenants: any[] }> {
+  const activeToken = token || getStoredToken();
+  if (!activeToken) throw new Error('Authentication token is missing.');
+
+  const response = await fetch(`${API_URL}/api/v1/auth/tenants`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
+      'Authorization': `Bearer ${activeToken.trim().replace(/^"|"$/g, '')}`,
     },
   });
 
   const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || 'Failed to fetch user profile.');
-  }
+  if (!response.ok) throw new Error(data.error || 'Failed to fetch workspaces.');
+  return data;
+}
 
+/**
+ * Switches the active tenant session.
+ */
+export async function switchTenant(token: string, tenantId: string): Promise<{ success: boolean; targetTenantId: string }> {
+  const response = await fetch(`${API_URL}/api/v1/auth/switch-tenant`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
+    },
+    body: JSON.stringify({ tenantId }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to switch workspace.');
+  return data;
+}
+
+/**
+ * Onboarding Step 1: Update user details.
+ */
+export async function onboardingStep1(token: string, firstName: string, lastName: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/onboarding/step1`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
+    },
+    body: JSON.stringify({ firstName, lastName }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Onboarding Step 1 failed.');
+  return data;
+}
+
+/**
+ * Onboarding Step 2: Create agency.
+ */
+export async function onboardingStep2(token: string, orgName: string): Promise<{ agencyId: string }> {
+  const response = await fetch(`${API_URL}/api/v1/onboarding/step2`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
+    },
+    body: JSON.stringify({ orgName }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Onboarding Step 2 failed.');
+  return data;
+}
+
+/**
+ * Onboarding Step 3: Create workspace.
+ */
+export async function onboardingStep3(token: string, workspaceName: string, color?: string, description?: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/v1/onboarding/step3`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token.trim().replace(/^"|"$/g, '')}`,
+    },
+    body: JSON.stringify({ workspaceName, color, description }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Onboarding Step 3 failed.');
   return data;
 }
 

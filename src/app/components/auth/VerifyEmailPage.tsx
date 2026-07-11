@@ -105,6 +105,23 @@ export function VerifyEmailPage({ email, session, onVerifySuccess, onBack }: Ver
         }
       });
 
+      // If user has a name, also ensure the Ops Cockpit profile is initialized
+      if (me.name) {
+        const [firstName, ...lastNames] = me.name.split(' ');
+        const lastName = lastNames.join(' ') || '';
+        const opsProfile = {
+          firstName,
+          lastName,
+          email: email,
+          designation: (me.role === 'owner' || me.role === 'platform_admin') ? 'Managing Director' : 'Workspace Member',
+          phone: '',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem('nconnect_ops_owner_profile', JSON.stringify(opsProfile));
+      }
+
       if (me.tenantId) {
         setSelectedWorkspace({
           id: me.tenantId,
